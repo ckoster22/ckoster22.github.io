@@ -67,12 +67,7 @@ upcomingRoundsFilter initialDate round =
 
 getFilteredRounds : (Date -> Round.Model -> Bool) -> Data -> List Round.Model
 getFilteredRounds filter data =
-    let
-        curriedUpcomingRoundFilter : Round.Model -> Bool
-        curriedUpcomingRoundFilter =
-            filter data.initialTime
-    in
-        List.filter curriedUpcomingRoundFilter data.rounds
+    List.filter (filter data.initialTime) data.rounds
 
 
 transformRoundToViewModel : Modifier -> Bool -> Round.Model -> RoundViewModel

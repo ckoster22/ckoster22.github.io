@@ -1,0 +1,68 @@
+.radar-container {
+    display: flex;
+}
+.radar-ring1 {
+    fill: #BABABA;
+}
+.radar-ring2 {
+    fill: #CACACA;
+}
+.radar-ring3 {
+    fill: #DADADA;
+}
+.radar-ring4 {
+    fill: #EEEEEE;
+}
+
+.quad {
+    cursor: pointer;
+}
+.quad-tools {
+    fill: #86B782;
+}
+.quad-langsAndFrameworks {
+    fill: #B32059;
+}
+.quad-platforms {
+    fill: #F38A3E;
+}
+.quad-techniques {
+    fill: #1EBCCD;
+}
+
+.blip {
+    font-size: 10px;
+    font-style: italic;
+    fill: #FFFFFF;
+}
+
+.is-faded {
+    opacity: 0.3;
+}
+
+html {
+    height: 100%;
+}
+body {
+    height: 100%;
+}
+body > div {
+    height: 100%;
+}
+.inputContainer {
+    display: flex;
+    height: 100%;
+    justify-content: center;
+    align-items: center;
+}
+.sheetInput {
+    font-size: 14px;
+    padding: 10px;
+    width: 50%;
+    min-width: 100px;
+    margin-right: 10px;
+}
+.sheetInputButton {
+    padding: 10px;
+    background-color: white;
+}

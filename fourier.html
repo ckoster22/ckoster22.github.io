@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fourier Transform Clock Visualizer</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #111;
+      color: white;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    canvas {
+      display: block;
+      margin: 0 auto;
+      background-color: #222;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+
+    let width, height;
+    function resizeCanvas() {
+      width = canvas.width = window.innerWidth;
+      height = canvas.height = window.innerHeight;
+      centerX = width / 2;
+      centerY = height / 2;
+    }
+    let centerX, centerY;
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    let drawing = [];
+    let fourier = [];
+    let time = 0;
+    let path = [];
+
+    function generateClockDrawing() {
+      const radius = Math.min(width, height) * 0.4;
+      const fontSize = radius * 0.2;
+      const numArcPoints = 30;
+      const hours = [12,1,2,3,4,5,6,7,8,9,10,11];
+      const totalHours = hours.length;
+      drawing = [];
+
+      for (let h = 0; h < totalHours; h++) {
+        const currentHour = hours[h];
+        const nextHour = hours[(h + 1) % totalHours];
+
+        const startAngle = ((currentHour % 12) / 12) * (2 * Math.PI) - Math.PI / 2;
+        const endAngle = ((nextHour % 12) / 12) * (2 * Math.PI) - Math.PI / 2;
+
+        for (let i = 0; i <= numArcPoints; i++) {
+          const t = i / numArcPoints;
+          let angle = startAngle + t * ((endAngle - startAngle + 2 * Math.PI) % (2 * Math.PI));
+          angle = angle % (2 * Math.PI);
+          const x = radius * Math.cos(angle);
+          const y = radius * Math.sin(angle);
+          drawing.push({ x, y });
+        }
+
+        const angleForNumber = ((nextHour % 12) / 12) * (2 * Math.PI) - Math.PI / 2;
+        const numX = radius * 1.1 * Math.cos(angleForNumber);
+        const numY = radius * 1.1 * Math.sin(angleForNumber);
+
+        const numeral = nextHour.toString();
+        const numberPoints = getTextPoints(numeral, numX, numY, fontSize);
+        drawing.push(...numberPoints);
+      }
+
+      centerDrawing();
+    }
+
+    function centerDrawing() {
+      let sumX = 0;
+      let sumY = 0;
+      for (let i = 0; i < drawing.length; i++) {
+        sumX += drawing[i].x;
+        sumY += drawing[i].y;
+      }
+      const avgX = sumX / drawing.length;
+      const avgY = sumY / drawing.length;
+      for (let i = 0; i < drawing.length; i++) {
+        drawing[i].x -= avgX;
+        drawing[i].y -= avgY;
+      }
+    }
+
+    function getTextPoints(text, xOffset, yOffset, size) {
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCanvas.width = width;
+      tempCanvas.height = height;
+
+      tempCtx.font = `bold ${size}px Arial`;
+      tempCtx.textAlign = 'center';
+      tempCtx.textBaseline = 'middle';
+      tempCtx.strokeStyle = 'white';
+      tempCtx.lineWidth = 2;
+      tempCtx.strokeText(text, centerX + xOffset, centerY + yOffset);
+
+      const imageData = tempCtx.getImageData(0, 0, width, height);
+      const data = imageData.data;
+      const points = [];
+
+      for (let py = 0; py < height; py += 2) {
+        for (let px = 0; px < width; px += 2) {
+          const index = (py * width + px) * 4;
+          if (data[index + 3] > 128) {
+            points.push({ x: px - centerX, y: py - centerY });
+          }
+        }
+      }
+
+      const reducedPoints = [];
+      const sampleRate = 1;
+      for (let i = 0; i < points.length; i += sampleRate) {
+        reducedPoints.push(points[i]);
+      }
+
+      const centerXOffset = xOffset;
+      const centerYOffset = yOffset;
+
+      reducedPoints.sort((a, b) => Math.atan2(a.y - centerYOffset, a.x - centerXOffset) - Math.atan2(b.y - centerYOffset, b.x - centerXOffset));
+
+      return reducedPoints;
+    }
+
+    function dft(points) {
+      const X = [];
+      const N = points.length;
+      for (let k = 0; k < N; k++) {
+        let reX = 0;
+        let imX = 0;
+        for (let n = 0; n < N; n++) {
+          const phi = (2 * Math.PI * k * n) / N;
+          reX += points[n].x * Math.cos(phi) + points[n].y * Math.sin(phi);
+          imX += -points[n].x * Math.sin(phi) + points[n].y * Math.cos(phi);
+        }
+        reX = reX / N;
+        imX = imX / N;
+
+        const freq = k;
+        const amp = Math.hypot(reX, imX);
+        const phase = Math.atan2(imX, reX);
+
+        X.push({ re: reX, im: imX, freq, amp, phase });
+      }
+      X.sort((a, b) => b.amp - a.amp);
+      return X;
+    }
+
+    function drawEpicycles(x, y, rotation, fourier) {
+      for (let i = 0; i < fourier.length; i++) {
+        const prevX = x;
+        const prevY = y;
+        const freq = fourier[i].freq;
+        const radius = fourier[i].amp;
+        const phase = fourier[i].phase;
+        const angle = freq * time + phase + rotation;
+
+        x += radius * Math.cos(angle);
+        y += radius * Math.sin(angle);
+
+        ctx.beginPath();
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.arc(prevX, prevY, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(prevX, prevY);
+        ctx.lineTo(x, y);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+        ctx.stroke();
+      }
+      return { x, y };
+    }
+
+    function animate() {
+      ctx.clearRect(0, 0, width, height);
+
+      const v = drawEpicycles(centerX, centerY, 0, fourier);
+
+      path.unshift(v);
+
+      ctx.beginPath();
+      ctx.moveTo(path[0].x, path[0].y);
+      for (let i = 1; i < path.length; i++) {
+        ctx.lineTo(path[i].x, path[i].y);
+      }
+      ctx.strokeStyle = 'cyan';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      const dt = (2 * Math.PI) / fourier.length;
+      time += dt;
+
+      if (time > 2 * Math.PI) {
+        time = 0;
+        path = [];
+      }
+
+      requestAnimationFrame(animate);
+    }
+
+    generateClockDrawing();
+    fourier = dft(drawing);
+
+    animate();
+  </script>
+</body>
+</html>
+

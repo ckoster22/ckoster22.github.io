@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Square-in-a-Square Tessellation</title>
+  <style>
+    body, html {
+      margin: 0; 
+      padding: 0; 
+      width: 100%; 
+      height: 100%;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+    #controls {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      background-color: rgba(255,255,255,0.8);
+      padding: 5px 10px;
+      border-radius: 4px;
+    }
+    #tessellation {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+
+<div id="controls">
+  <label for="contactRange">Inner Contact (0 to 1):</label>
+  <input type="range" min="0" max="1" step="0.01" id="contactRange" value="0.5" />
+</div>
+
+<svg id="tessellation" viewBox="0 0 800 600">
+  <defs>
+    <!-- Define the square-within-square pattern -->
+    <pattern id="squarePattern" 
+      x="0" y="0" 
+      width="100" height="100" 
+      patternUnits="userSpaceOnUse">
+
+      <!-- Outer square (100x100) -->
+      <rect width="100" height="100" fill="none" stroke="black" stroke-width="0.5" />
+
+      <!-- Inner rotated square: We'll update these points by JS -->
+      <polygon id="innerSquare" 
+               fill="#d2a58f" 
+               stroke="black" 
+               stroke-width="0.5" />
+    </pattern>
+  </defs>
+
+  <!-- Fill the entire SVG with the pattern -->
+  <rect x="0" y="0" width="100%" height="100%" fill="url(#squarePattern)" />
+</svg>
+
+<script>
+  const contactRange = document.getElementById('contactRange');
+  const innerSquare = document.getElementById('innerSquare');
+
+  // A single tile is 100x100. We'll define the corners of the inner square
+  // so each corner lies on one edge of the outer square. Fraction f in [0..1]
+  // decides how far along each edge the corner of the inner square sits.
+  function updateInnerSquare() {
+    const f = parseFloat(contactRange.value);
+
+    // Outer square corners: 
+    // (0,0) → top-left
+    // (100,0) → top-right
+    // (100,100) → bottom-right
+    // (0,100) → bottom-left
+
+    // Inner corners (assuming perfect "diamond" orientation):
+    // top corner on top edge: (100 * f, 0)
+    // right corner on right edge: (100, 100 * f)
+    // bottom corner on bottom edge: (100 * (1 - f), 100)
+    // left corner on left edge: (0, 100 * (1 - f))
+
+    const points = [
+      `${100*f},0`,
+      `100,${100*f}`,
+      `${100*(1-f)},100`,
+      `0,${100*(1-f)}`
+    ].join(" ");
+
+    innerSquare.setAttribute('points', points);
+  }
+
+  contactRange.addEventListener('input', updateInnerSquare);
+  updateInnerSquare(); // Initialize on page load
+</script>
+</body>
+</html>

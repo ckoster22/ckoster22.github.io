@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Mouse Escape - Single File</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #2c5530, #1a3d1e);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: white;
+        }
+
+        #gameContainer {
+            position: relative;
+            text-align: center;
+        }
+
+        #gameCanvas {
+            border: 3px solid #4a6741;
+            border-radius: 10px;
+            background: #5a7c5a;
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+        }
+
+        #gameUI {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        #score,
+        #lives {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 16px;
+            border-radius: 5px;
+            border: 2px solid #4a6741;
+        }
+
+        #gameStatus {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 8px 16px;
+            border-radius: 5px;
+            border: 2px solid #4a6741;
+            flex-grow: 1;
+            margin: 0 10px;
+        }
+
+        #gameOverScreen,
+        #winScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 15px;
+            border: 3px solid #4a6741;
+            text-align: center;
+            z-index: 1000;
+        }
+
+        #gameOverScreen h2,
+        #winScreen h2 {
+            color: #ff6b6b;
+            margin-bottom: 20px;
+            font-size: 2em;
+        }
+
+        #winScreen h2 {
+            color: #4ecdc4;
+        }
+
+        #gameOverScreen p,
+        #winScreen p {
+            margin-bottom: 20px;
+            font-size: 1.2em;
+        }
+
+        button {
+            background: #4a6741;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background: #5a7c5a;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="gameContainer">
+        <div id="gameUI">
+            <div id="score">Score: 0</div>
+            <div id="lives">Lives: 3</div>
+            <div id="gameStatus">Use WASD or Arrow Keys to move the mouse!</div>
+        </div>
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div id="gameOverScreen" class="hidden">
+            <h2>Game Over!</h2>
+            <p>You were caught!</p>
+            <button id="restartBtn">Play Again</button>
+        </div>
+        <div id="winScreen" class="hidden">
+            <h2>You Escaped!</h2>
+            <p>Congratulations! The mouse made it to safety!</p>
+            <button id="playAgainBtn">Play Again</button>
+        </div>
+    </div>
+
+    <script>
+        'use strict';
+
+        class Game {
+            constructor(canvas) {
+                this.canvas = canvas;
+                this.ctx = canvas.getContext('2d');
+                this.mouse = new Mouse(100, canvas.height - 100);
+                this.cats = [];
+                this.kids = [];
+                this.dogs = [];
+                this.obstacles = [];
+                this.house = new House(700, 50);
+                this.gameState = 'playing';
+                this.score = 0;
+                this.lives = 3;
+                this.keys = {};
+                this.lastTime = 0;
+                this.animationId = null;
+
+                this.setupEventListeners();
+                this.initializeGame();
+            }
+
+            setupEventListeners() {
+                document.addEventListener('keydown', (e) => {
+                    this.keys[e.key.toLowerCase()] = true;
+                    this.keys[e.code] = true;
+                });
+                document.addEventListener('keyup', (e) => {
+                    this.keys[e.key.toLowerCase()] = false;
+                    this.keys[e.code] = false;
+                });
+            }
+
+            initializeGame() {
+                this.cats = [
+                    new Cat(200, 200, 120),
+                    new Cat(400, 300, 100),
+                    new Cat(600, 150, 140),
+                    new Cat(300, 500, 110),
+                    new Cat(500, 400, 130)
+                ];
+
+                this.kids = [
+                    new Kid(250, 100, 70),
+                    new Kid(650, 500, 80)
+                ];
+
+                this.dogs = [
+                    new Dog(100, 200, 180)
+                ];
+
+                this.obstacles = [
+                    new Obstacle(150, 100, 40, 60, '#4a6741'),
+                    new Obstacle(300, 200, 50, 40, '#8B4513'),
+                    new Obstacle(500, 100, 40, 80, '#4a6741'),
+                    new Obstacle(200, 400, 60, 30, '#8B4513'),
+                    new Obstacle(600, 350, 45, 50, '#4a6741'),
+                    new Obstacle(100, 300, 35, 45, '#8B4513')
+                ];
+            }
+
+            start() { this.gameLoop(); }
+
+            restart() {
+                this.gameState = 'playing';
+                this.score = 0;
+                this.lives = 3;
+                this.mouse = new Mouse(100, this.canvas.height - 100);
+                this.initializeGame();
+                this.hideScreens();
+                this.updateUI();
+            }
+
+            gameLoop = (currentTime = 0) => {
+                let deltaTime = currentTime - this.lastTime;
+                if (!Number.isFinite(deltaTime) || deltaTime <= 0 || deltaTime > 1000) {
+                    deltaTime = 16;
+                }
+                this.lastTime = currentTime;
+
+                if (this.gameState === 'playing') {
+                    this.update(deltaTime);
+                    this.render();
+                }
+
+                this.animationId = requestAnimationFrame(this.gameLoop);
+            }
+
+            update(deltaTime) {
+                this.mouse.update(this.keys, deltaTime, this.canvas.width, this.canvas.height);
+
+                this.cats.forEach(cat => cat.update(deltaTime, this.mouse, this.obstacles, this.canvas.width, this.canvas.height));
+                this.kids.forEach(kid => kid.update(deltaTime, this.mouse, this.obstacles, this.canvas.width, this.canvas.height));
+                this.dogs.forEach(dog => dog.update(deltaTime, this.mouse, this.obstacles, this.canvas.width, this.canvas.height));
+
+                this.checkCollisions();
+
+                if (this.mouse.checkWinCondition(this.house)) {
+                    this.gameState = 'win';
+                    this.showWinScreen();
+                }
+            }
+
+            checkCollisions() {
+                const onHit = () => {
+                    this.lives--;
+                    this.mouse.resetPosition(this.canvas.height);
+                    if (this.lives <= 0) {
+                        this.gameState = 'gameOver';
+                        this.showGameOverScreen();
+                    } else {
+                        this.updateUI();
+                    }
+                };
+
+                this.cats.forEach(cat => { if (this.mouse.checkCollision(cat)) onHit(); });
+                this.kids.forEach(kid => { if (this.mouse.checkCollision(kid)) onHit(); });
+                this.dogs.forEach(dog => { if (this.mouse.checkCollision(dog)) onHit(); });
+
+                this.obstacles.forEach(obstacle => {
+                    if (this.mouse.checkObstacleCollision(obstacle)) {
+                        this.mouse.handleObstacleCollision(obstacle);
+                    }
+                });
+            }
+
+            render() {
+                this.ctx.fillStyle = '#5a7c5a';
+                this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+
+                this.obstacles.forEach(obstacle => obstacle.draw(this.ctx));
+                this.house.draw(this.ctx);
+                this.cats.forEach(cat => cat.draw(this.ctx));
+                this.kids.forEach(kid => kid.draw(this.ctx));
+                this.dogs.forEach(dog => dog.draw(this.ctx));
+                this.mouse.draw(this.ctx);
+            }
+
+            updateUI() {
+                const scoreElement = document.getElementById('score');
+                const livesElement = document.getElementById('lives');
+                scoreElement.textContent = `Score: ${this.score}`;
+                livesElement.textContent = `Lives: ${this.lives}`;
+            }
+
+            showGameOverScreen() { document.getElementById('gameOverScreen').classList.remove('hidden'); }
+            showWinScreen() { document.getElementById('winScreen').classList.remove('hidden'); }
+            hideScreens() {
+                document.getElementById('gameOverScreen').classList.add('hidden');
+                document.getElementById('winScreen').classList.add('hidden');
+            }
+        }
+
+        class Mouse {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.size = 15;
+                this.speed = 200;
+                this.vx = 0;
+                this.vy = 0;
+            }
+
+            update(keys, deltaTime, canvasWidth, canvasHeight) {
+                this.vx = 0; this.vy = 0;
+                if (keys['w'] || keys['ArrowUp']) this.vy = -this.speed;
+                if (keys['s'] || keys['ArrowDown']) this.vy = this.speed;
+                if (keys['a'] || keys['ArrowLeft']) this.vx = -this.speed;
+                if (keys['d'] || keys['ArrowRight']) this.vx = this.speed;
+                if (this.vx !== 0 && this.vy !== 0) { this.vx *= 0.707; this.vy *= 0.707; }
+                this.x += this.vx * deltaTime / 1000;
+                this.y += this.vy * deltaTime / 1000;
+                this.x = Math.max(this.size, Math.min(canvasWidth - this.size, this.x));
+                this.y = Math.max(this.size, Math.min(canvasHeight - this.size, this.y));
+            }
+
+            draw(ctx) {
+                ctx.fillStyle = '#8B4513';
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = '#654321';
+                ctx.beginPath();
+                ctx.arc(this.x - 8, this.y - 8, 5, 0, Math.PI * 2);
+                ctx.arc(this.x + 8, this.y - 8, 5, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#654321'; ctx.lineWidth = 3;
+                ctx.beginPath(); ctx.moveTo(this.x + this.size, this.y);
+                ctx.lineTo(this.x + this.size + 10, this.y + 5); ctx.stroke();
+            }
+
+            checkCollision(enemy) {
+                const dx = this.x - enemy.x; const dy = this.y - enemy.y;
+                return Math.hypot(dx, dy) < this.size + enemy.size;
+            }
+
+            checkObstacleCollision(o) {
+                return this.x + this.size > o.x && this.x - this.size < o.x + o.width &&
+                    this.y + this.size > o.y && this.y - this.size < o.y + o.height;
+            }
+
+            handleObstacleCollision(o) {
+                const centerX = o.x + o.width / 2; const centerY = o.y + o.height / 2;
+                const dx = this.x - centerX; const dy = this.y - centerY;
+                const distance = Math.hypot(dx, dy);
+                if (distance > 0) {
+                    const push = this.size + Math.max(o.width, o.height) / 2 + 5;
+                    this.x = centerX + (dx / distance) * push;
+                    this.y = centerY + (dy / distance) * push;
+                }
+            }
+
+            resetPosition(canvasHeight) { this.x = 100; this.y = canvasHeight - 100; }
+            checkWinCondition(house) {
+                return this.x + this.size > house.x && this.x - this.size < house.x + house.width &&
+                    this.y + this.size > house.y && this.y - this.size < house.y + house.height;
+            }
+        }
+
+        class Cat {
+            constructor(x, y, speed) {
+                this.x = x; this.y = y; this.speed = speed; this.size = 20;
+                this.vx = 0; this.vy = 0; this.lastDirectionChange = 0; this.directionChangeInterval = 2000;
+                this.visionRange = 200; this.visionAngle = Math.PI / 3; this.currentDirection = Math.random() * Math.PI * 2;
+                this.isHunting = false;
+                this.vx = Math.cos(this.currentDirection) * this.speed;
+                this.vy = Math.sin(this.currentDirection) * this.speed;
+            }
+
+            update(deltaTime, mouse, obstacles, canvasWidth, canvasHeight) {
+                this.lastDirectionChange += deltaTime;
+                const canSeeMouse = this.canSeeMouse(mouse);
+                if (canSeeMouse) {
+                    this.isHunting = true;
+                    const dx = mouse.x - this.x; const dy = mouse.y - this.y;
+                    const d = Math.hypot(dx, dy);
+                    if (d > 0) { this.vx = (dx / d) * this.speed * 1.2; this.vy = (dy / d) * this.speed * 1.2; this.currentDirection = Math.atan2(dy, dx); }
+                } else {
+                    this.isHunting = false;
+                    if (this.lastDirectionChange >= this.directionChangeInterval || this.x <= this.size || this.x >= canvasWidth - this.size || this.y <= this.size || this.y >= canvasHeight - this.size) {
+                        this.changeDirection(); this.lastDirectionChange = 0;
+                    }
+                    this.vx = Math.cos(this.currentDirection) * this.speed;
+                    this.vy = Math.sin(this.currentDirection) * this.speed;
+                    if (Math.abs(this.vx) < 0.001 && Math.abs(this.vy) < 0.001) { this.changeDirection(); this.vx = Math.cos(this.currentDirection) * this.speed; this.vy = Math.sin(this.currentDirection) * this.speed; }
+                }
+                this.x += this.vx * deltaTime / 1000; this.y += this.vy * deltaTime / 1000;
+                this.x = Math.max(this.size, Math.min(canvasWidth - this.size, this.x)); this.y = Math.max(this.size, Math.min(canvasHeight - this.size, this.y));
+                obstacles.forEach(o => { if (this.checkObstacleCollision(o)) { this.handleObstacleCollision(o); this.changeDirection(); } });
+            }
+
+            canSeeMouse(mouse) {
+                const dx = mouse.x - this.x; const dy = mouse.y - this.y; const d = Math.hypot(dx, dy);
+                if (d > this.visionRange) return false;
+                const angleTo = Math.atan2(dy, dx); let diff = Math.abs(angleTo - this.currentDirection); if (diff > Math.PI) diff = 2 * Math.PI - diff; return diff <= this.visionAngle / 2;
+            }
+            changeDirection() { this.currentDirection = Math.random() * Math.PI * 2; this.vx = Math.cos(this.currentDirection) * this.speed; this.vy = Math.sin(this.currentDirection) * this.speed; }
+            checkObstacleCollision(o) { return this.x + this.size > o.x && this.x - this.size < o.x + o.width && this.y + this.size > o.y && this.y - this.size < o.y + o.height; }
+            handleObstacleCollision(o) {
+                const cx = o.x + o.width / 2, cy = o.y + o.height / 2; const dx = this.x - cx, dy = this.y - cy; const d = Math.hypot(dx, dy);
+                if (d > 0) { const push = this.size + Math.max(o.width, o.height) / 2 + 5; this.x = cx + (dx / d) * push; this.y = cy + (dy / d) * push; }
+            }
+            draw(ctx) {
+                ctx.fillStyle = this.isHunting ? 'rgba(255, 107, 107, 0.1)' : 'rgba(255, 107, 107, 0.05)';
+                ctx.beginPath(); ctx.moveTo(this.x, this.y);
+                ctx.arc(this.x, this.y, this.visionRange, this.currentDirection - this.visionAngle / 2, this.currentDirection + this.visionAngle / 2);
+                ctx.closePath(); ctx.fill();
+                ctx.fillStyle = this.isHunting ? '#FF4444' : '#FF6B6B'; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+                ctx.fillStyle = this.isHunting ? '#FF6666' : '#FF8E8E'; ctx.beginPath(); ctx.arc(this.x - 10, this.y - 10, 6, 0, Math.PI * 2); ctx.arc(this.x + 10, this.y - 10, 6, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = this.isHunting ? '#FF6666' : '#FF8E8E'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(this.x + this.size, this.y); ctx.lineTo(this.x + this.size + 15, this.y - 10); ctx.stroke();
+                ctx.strokeStyle = this.isHunting ? '#FF0000' : '#FF6B6B'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x + Math.cos(this.currentDirection) * 25, this.y + Math.sin(this.currentDirection) * 25); ctx.stroke();
+            }
+        }
+
+        class Kid {
+            constructor(x, y, speed) {
+                this.x = x; this.y = y; this.speed = speed; this.size = 18;
+                this.vx = 0; this.vy = 0; this.lastDirectionChange = 0; this.directionChangeInterval = 2200;
+                this.visionRange = 180; this.visionAngle = Math.PI / 2; this.currentDirection = Math.random() * Math.PI * 2; this.isHunting = false;
+                this.vx = Math.cos(this.currentDirection) * this.speed; this.vy = Math.sin(this.currentDirection) * this.speed;
+            }
+            update(deltaTime, mouse, obstacles, canvasWidth, canvasHeight) {
+                this.lastDirectionChange += deltaTime; const canSeeMouse = this.canSeeMouse(mouse);
+                if (canSeeMouse) {
+                    this.isHunting = true; const dx = mouse.x - this.x, dy = mouse.y - this.y; const d = Math.hypot(dx, dy);
+                    if (d > 0) { this.vx = (dx / d) * this.speed * 1.05; this.vy = (dy / d) * this.speed * 1.05; this.currentDirection = Math.atan2(dy, dx); }
+                } else {
+                    this.isHunting = false;
+                    if (this.lastDirectionChange >= this.directionChangeInterval || this.x <= this.size || this.x >= canvasWidth - this.size || this.y <= this.size || this.y >= canvasHeight - this.size) { this.changeDirection(); this.lastDirectionChange = 0; }
+                    this.vx = Math.cos(this.currentDirection) * this.speed; this.vy = Math.sin(this.currentDirection) * this.speed;
+                }
+                this.x += this.vx * deltaTime / 1000; this.y += this.vy * deltaTime / 1000;
+                this.x = Math.max(this.size, Math.min(canvasWidth - this.size, this.x)); this.y = Math.max(this.size, Math.min(canvasHeight - this.size, this.y));
+                obstacles.forEach(o => { if (this.checkObstacleCollision(o)) { this.handleObstacleCollision(o); this.changeDirection(); } });
+            }
+            canSeeMouse(mouse) { const dx = mouse.x - this.x, dy = mouse.y - this.y, d = Math.hypot(dx, dy); if (d > this.visionRange) return false; const angleTo = Math.atan2(dy, dx); let diff = Math.abs(angleTo - this.currentDirection); if (diff > Math.PI) diff = 2 * Math.PI - diff; return diff <= this.visionAngle / 2; }
+            changeDirection() { this.currentDirection = Math.random() * Math.PI * 2; this.vx = Math.cos(this.currentDirection) * this.speed; this.vy = Math.sin(this.currentDirection) * this.speed; }
+            checkObstacleCollision(o) { return this.x + this.size > o.x && this.x - this.size < o.x + o.width && this.y + this.size > o.y && this.y - this.size < o.y + o.height; }
+            handleObstacleCollision(o) { const cx = o.x + o.width / 2, cy = o.y + o.height / 2; const dx = this.x - cx, dy = this.y - cy; const d = Math.hypot(dx, dy); if (d > 0) { const push = this.size + Math.max(o.width, o.height) / 2 + 5; this.x = cx + (dx / d) * push; this.y = cy + (dy / d) * push; } }
+            draw(ctx) {
+                ctx.fillStyle = this.isHunting ? 'rgba(255, 255, 0, 0.12)' : 'rgba(255, 255, 0, 0.06)'; ctx.beginPath(); ctx.moveTo(this.x, this.y);
+                ctx.arc(this.x, this.y, this.visionRange, this.currentDirection - this.visionAngle / 2, this.currentDirection + this.visionAngle / 2); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = this.isHunting ? '#FFD54F' : '#FFEB3B'; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#BFA300'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x + Math.cos(this.currentDirection) * 22, this.y + Math.sin(this.currentDirection) * 22); ctx.stroke();
+            }
+        }
+
+        class Dog {
+            constructor(x, y, speed) {
+                this.x = x; this.y = y; this.speed = speed; this.size = 22;
+                this.vx = 0; this.vy = 0; this.lastDirectionChange = 0; this.directionChangeInterval = 1800;
+                this.visionRange = 230; this.visionAngle = Math.PI / 2.5; this.currentDirection = Math.random() * Math.PI * 2; this.isHunting = false;
+                this.vx = Math.cos(this.currentDirection) * this.speed; this.vy = Math.sin(this.currentDirection) * this.speed;
+            }
+            update(deltaTime, mouse, obstacles, canvasWidth, canvasHeight) {
+                this.lastDirectionChange += deltaTime; const canSeeMouse = this.canSeeMouse(mouse);
+                if (canSeeMouse) {
+                    this.isHunting = true; const dx = mouse.x - this.x, dy = mouse.y - this.y, d = Math.hypot(dx, dy);
+                    if (d > 0) { this.vx = (dx / d) * this.speed * 1.25; this.vy = (dy / d) * this.speed * 1.25; this.currentDirection = Math.atan2(dy, dx); }
+                } else {
+                    this.isHunting = false; if (this.lastDirectionChange >= this.directionChangeInterval || this.x <= this.size || this.x >= canvasWidth - this.size || this.y <= this.size || this.y >= canvasHeight - this.size) { this.changeDirection(); this.lastDirectionChange = 0; }
+                    this.vx = Math.cos(this.currentDirection) * this.speed; this.vy = Math.sin(this.currentDirection) * this.speed;
+                }
+                this.x += this.vx * deltaTime / 1000; this.y += this.vy * deltaTime / 1000; this.x = Math.max(this.size, Math.min(canvasWidth - this.size, this.x)); this.y = Math.max(this.size, Math.min(canvasHeight - this.size, this.y));
+                obstacles.forEach(o => { if (this.checkObstacleCollision(o)) { this.handleObstacleCollision(o); this.changeDirection(); } });
+            }
+            canSeeMouse(mouse) { const dx = mouse.x - this.x, dy = mouse.y - this.y, d = Math.hypot(dx, dy); if (d > this.visionRange) return false; const angleTo = Math.atan2(dy, dx); let diff = Math.abs(angleTo - this.currentDirection); if (diff > Math.PI) diff = 2 * Math.PI - diff; return diff <= this.visionAngle / 2; }
+            changeDirection() { this.currentDirection = Math.random() * Math.PI * 2; this.vx = Math.cos(this.currentDirection) * this.speed; this.vy = Math.sin(this.currentDirection) * this.speed; }
+            checkObstacleCollision(o) { return this.x + this.size > o.x && this.x - this.size < o.x + o.width && this.y + this.size > o.y && this.y - this.size < o.y + o.height; }
+            handleObstacleCollision(o) { const cx = o.x + o.width / 2, cy = o.y + o.height / 2; const dx = this.x - cx, dy = this.y - cy; const d = Math.hypot(dx, dy); if (d > 0) { const push = this.size + Math.max(o.width, o.height) / 2 + 5; this.x = cx + (dx / d) * push; this.y = cy + (dy / d) * push; } }
+            draw(ctx) {
+                ctx.fillStyle = this.isHunting ? 'rgba(0, 150, 255, 0.12)' : 'rgba(0, 150, 255, 0.06)'; ctx.beginPath(); ctx.moveTo(this.x, this.y);
+                ctx.arc(this.x, this.y, this.visionRange, this.currentDirection - this.visionAngle / 2, this.currentDirection + this.visionAngle / 2); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = this.isHunting ? '#2196F3' : '#64B5F6'; ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fill();
+                ctx.strokeStyle = '#0D47A1'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x + Math.cos(this.currentDirection) * 26, this.y + Math.sin(this.currentDirection) * 26); ctx.stroke();
+            }
+        }
+
+        class Obstacle {
+            constructor(x, y, width, height, color) { this.x = x; this.y = y; this.width = width; this.height = height; this.color = color; }
+            draw(ctx) {
+                ctx.fillStyle = this.color; ctx.fillRect(this.x, this.y, this.width, this.height);
+                ctx.fillStyle = this.color === '#4a6741' ? '#3d5a3d' : '#654321';
+                ctx.fillRect(this.x + 2, this.y + 2, this.width - 4, this.height - 4);
+            }
+        }
+
+        class House {
+            constructor(x, y) { this.x = x; this.y = y; this.width = 100; this.height = 80; }
+            draw(ctx) {
+                ctx.fillStyle = '#8B4513'; ctx.fillRect(this.x, this.y + 40, this.width, 40);
+                ctx.fillStyle = '#654321'; ctx.beginPath(); ctx.moveTo(this.x - 10, this.y + 40); ctx.lineTo(this.x + this.width / 2, this.y); ctx.lineTo(this.x + this.width + 10, this.y + 40); ctx.closePath(); ctx.fill();
+                ctx.fillStyle = '#654321'; ctx.fillRect(this.x + 35, this.y + 50, 30, 30);
+                ctx.fillStyle = '#87CEEB'; ctx.fillRect(this.x + 10, this.y + 20, 20, 20); ctx.fillRect(this.x + 70, this.y + 20, 20, 20);
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const canvas = document.getElementById('gameCanvas');
+            const game = new Game(canvas);
+            game.start();
+            document.getElementById('restartBtn').addEventListener('click', () => game.restart());
+            document.getElementById('playAgainBtn').addEventListener('click', () => game.restart());
+        });
+    </script>
+</body>
+
+</html>

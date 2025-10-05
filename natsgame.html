@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>2D Platformer Game</title>
+    <style>
+        * {
+            box-sizing: border-box
+        }
+
+        html,
+        body {
+            height: 100%
+        }
+
+        body {
+            margin: 0;
+            display: grid;
+            place-items: center;
+            background: #0e0f12;
+            color: #eaecef;
+            font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"
+        }
+
+        canvas#game {
+            border: 1px solid #2a2e35;
+            background: linear-gradient(#1b1f27, #111318);
+            image-rendering: pixelated
+        }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            display: grid;
+            place-items: center;
+            background: #00000080
+        }
+
+        .overlay.hidden {
+            display: none
+        }
+
+        .overlay-content {
+            background: #1b1f27;
+            border: 1px solid #2a2e35;
+            padding: 24px 28px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 10px 30px #0006
+        }
+
+        .overlay-content h1 {
+            margin: 0 0 16px;
+            font-size: 28px
+        }
+
+        .overlay-content button {
+            background: #2c3340;
+            color: #eaecef;
+            border: 1px solid #3a4150;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer
+        }
+
+        .overlay-content button:hover {
+            background: #353c4a
+        }
+    </style>
+</head>
+
+<body>
+    <canvas id="game" width="800" height="450"></canvas>
+    <div id="overlay" class="overlay hidden">
+        <div class="overlay-content">
+            <h1 id="overlay-title">Game Over</h1>
+            <button id="restart">Restart</button>
+        </div>
+    </div>
+    <script>
+        (function () { const t = document.createElement("link").relList; if (t && t.supports && t.supports("modulepreload")) return; for (const s of document.querySelectorAll('link[rel="modulepreload"]')) e(s); new MutationObserver(s => { for (const o of s) if (o.type === "childList") for (const h of o.addedNodes) h.tagName === "LINK" && h.rel === "modulepreload" && e(h) }).observe(document, { childList: !0, subtree: !0 }); function i(s) { const o = {}; return s.integrity && (o.integrity = s.integrity), s.referrerPolicy && (o.referrerPolicy = s.referrerPolicy), s.crossOrigin === "use-credentials" ? o.credentials = "include" : s.crossOrigin === "anonymous" ? o.credentials = "omit" : o.credentials = "same-origin", o } function e(s) { if (s.ep) return; s.ep = !0; const o = i(s); fetch(s.href, o) } })(); class S { canvas; ctx; animationFrameId = null; keys = {}; gravity = 1800; friction = .85; maxSpeedX = 400; accel = 1600; jumpVelocity = -650; player = { x: 100, y: 280, w: 36, h: 36, vel: { x: 0, y: 0 }, onGround: !1 }; playerMaxHealth = 100; playerHealth = 100; playerHurtTimer = 0; playerContactCooldown = 0; platforms = [{ x: 0, y: 410, w: 800, h: 40 }, { x: 120, y: 340, w: 120, h: 18 }, { x: 300, y: 300, w: 160, h: 18 }, { x: 520, y: 260, w: 120, h: 18 }, { x: 50, y: 320, w: 80, h: 16 }, { x: 200, y: 280, w: 60, h: 16 }, { x: 400, y: 240, w: 100, h: 16 }, { x: 600, y: 200, w: 80, h: 16 }, { x: 680, y: 320, w: 100, h: 16 }, { x: 150, y: 200, w: 60, h: 16 }, { x: 250, y: 160, w: 80, h: 16 }, { x: 450, y: 120, w: 100, h: 16 }]; bombs = []; enemies = []; timeRemaining = 60; kills = 0; totalEnemies = 6; state = "playing"; overlay = null; overlayTitle = null; restartBtn = null; constructor(t) { this.canvas = t; const i = this.canvas.getContext("2d"); if (!i) throw new Error("Failed to get 2D context"); this.ctx = i, this.onKeyDown = this.onKeyDown.bind(this), this.onKeyUp = this.onKeyUp.bind(this), window.addEventListener("keydown", this.onKeyDown), window.addEventListener("keyup", this.onKeyUp), this.resize(), window.addEventListener("resize", () => this.resize()), this.overlay = document.getElementById("overlay"), this.overlayTitle = document.getElementById("overlay-title"), this.restartBtn = document.getElementById("restart"), this.restartBtn && this.restartBtn.addEventListener("click", () => this.reset()), this.reset() } start() { let t = performance.now(); const i = e => { const s = Math.min(.03333333333333333, (e - t) / 1e3); t = e, this.update(s), this.render(), this.animationFrameId = requestAnimationFrame(i) }; this.animationFrameId = requestAnimationFrame(i) } dispose() { this.animationFrameId !== null && cancelAnimationFrame(this.animationFrameId), window.removeEventListener("keydown", this.onKeyDown), window.removeEventListener("keyup", this.onKeyUp), this.restartBtn && this.restartBtn.replaceWith(this.restartBtn.cloneNode(!0)) } resize() { } onKeyDown(t) { this.keys[t.key] = !0, ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", " "].includes(t.key) && t.preventDefault(), t.key === " " && this.state === "playing" && this.spawnBomb() } onKeyUp(t) { this.keys[t.key] = !1 } update(t) { if (this.state !== "playing") { this.render(); return } const i = this.keys.ArrowLeft || this.keys.a || !1, e = this.keys.ArrowRight || this.keys.d || !1, s = this.keys.ArrowUp || this.keys.w || !1; i && !e ? this.player.vel.x -= this.accel * t : e && !i ? this.player.vel.x += this.accel * t : this.player.onGround && (this.player.vel.x *= this.friction), this.player.vel.x = Math.max(-this.maxSpeedX, Math.min(this.maxSpeedX, this.player.vel.x)), s && this.player.onGround && (this.player.vel.y = this.jumpVelocity, this.player.onGround = !1), this.player.vel.y += this.gravity * t, this.player.x += this.player.vel.x * t, this.resolveBodyCollisions(this.player, "x"), this.player.y += this.player.vel.y * t; const o = this.resolveBodyCollisions(this.player, "y"); this.player.onGround = o, this.player.x < 0 && (this.player.x = 0, this.player.vel.x = 0), this.player.x + this.player.w > this.canvas.width && (this.player.x = this.canvas.width - this.player.w, this.player.vel.x = 0), this.updateBombs(t), this.playerHurtTimer > 0 && (this.playerHurtTimer = Math.max(0, this.playerHurtTimer - t)), this.playerContactCooldown > 0 && (this.playerContactCooldown = Math.max(0, this.playerContactCooldown - t)), this.updateEnemies(t), this.timeRemaining = Math.max(0, this.timeRemaining - t), this.playerHealth <= 0 ? this.lose() : this.enemies.every(h => h.health <= 0) ? this.win() : this.timeRemaining <= 0 && this.lose() } resolveBodyCollisions(t, i) { let e = !1; for (const s of this.platforms) this.aabb(t, s) && (i === "x" ? (t.vel.x > 0 ? t.x = s.x - t.w : t.vel.x < 0 && (t.x = s.x + s.w), t.vel.x = 0) : t.vel.y > 0 ? (t.y = s.y - t.h, t.vel.y = 0, e = !0) : t.vel.y < 0 && (t.y = s.y + s.h, t.vel.y = 0)); return e } aabb(t, i) { return t.x < i.x + i.w && t.x + t.w > i.x && t.y < i.y + i.h && t.y + t.h > i.y } clear() { const t = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height); t.addColorStop(0, "#151922"), t.addColorStop(1, "#0f1218"), this.ctx.fillStyle = t, this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height) } render() { this.clear(), this.ctx.fillStyle = "#2c3340"; for (const a of this.platforms) this.ctx.fillRect(a.x, a.y, a.w, a.h); for (const a of this.bombs) if (a.state === "fuse") { const r = a.x + a.w / 2, y = a.y + a.h / 2, n = Math.min(a.w, a.h) / 2; this.ctx.beginPath(), this.ctx.fillStyle = "#383f4a", this.ctx.arc(r, y, n, 0, Math.PI * 2), this.ctx.fill(), this.ctx.beginPath(), this.ctx.fillStyle = "#ffcc66", this.ctx.arc(r + n * .8, y - n * .8, Math.max(1.5, n * .25), 0, Math.PI * 2), this.ctx.fill() } for (const a of this.enemies) { if (a.health <= 0) continue; const r = a.x + a.w / 2, y = a.y + a.h / 2, n = a.r, m = a.hurtTimer > 0 && Math.floor(a.hurtTimer * 20) % 2 === 0; if (this.ctx.beginPath(), this.ctx.fillStyle = m ? "#ff6b6b" : a.color, this.ctx.arc(r, y, n, 0, Math.PI * 2), this.ctx.fill(), a.hurtRing) { const u = Math.min(1, a.hurtRing.t / a.hurtRing.duration), d = n + 4 + u * 18, v = 1 - u; this.ctx.beginPath(), this.ctx.strokeStyle = `rgba(255,120,73,${v})`, this.ctx.lineWidth = 2, this.ctx.arc(r, y, d, 0, Math.PI * 2), this.ctx.stroke() } } if (this.playerHurtTimer > 0) { const a = Math.floor(this.playerHurtTimer * 20) % 2 === 0; this.ctx.fillStyle = a ? "#ff9f43" : "#ffc266" } else this.ctx.fillStyle = "#6cf1ff"; this.ctx.fillRect(this.player.x, this.player.y, this.player.w, this.player.h); for (const a of this.bombs) if (a.state === "exploding" && a.explosion) { const r = a.x + a.w / 2, y = a.y + a.h / 2, n = a.explosion.t / a.explosion.duration, m = a.explosion.maxRadius * Math.min(1, n), u = 1 - Math.min(1, n), d = this.ctx.createRadialGradient(r, y, 0, r, y, m); d.addColorStop(0, `rgba(255,240,160,${u})`), d.addColorStop(.4, `rgba(255,160,0,${Math.max(0, u * .8)})`), d.addColorStop(1, "rgba(255,80,0,0)"), this.ctx.fillStyle = d, this.ctx.beginPath(), this.ctx.arc(r, y, m, 0, Math.PI * 2), this.ctx.fill() } this.ctx.fillStyle = "#9aa4b2", this.ctx.font = "14px ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial", this.ctx.fillText("Arrows/WASD move, Up/W jump, Space drops bomb", 12, 24); const t = 12, i = 36, e = 180, s = 10; this.ctx.fillStyle = "#2c3340", this.ctx.fillRect(t - 1, i - 1, e + 2, s + 2); const o = Math.max(0, Math.min(1, this.playerHealth / this.playerMaxHealth)), h = this.ctx.createLinearGradient(t, i, t + e, i); h.addColorStop(0, "#ff7849"), h.addColorStop(1, "#ffc266"), this.ctx.fillStyle = h, this.ctx.fillRect(t, i, e * o, s), this.ctx.fillStyle = "#9aa4b2", this.ctx.font = "14px ui-sans-serif, -apple-system, Segoe UI, Roboto, Helvetica, Arial", this.ctx.fillText(`Time: ${Math.ceil(this.timeRemaining)}  Kills: ${this.kills}/${this.totalEnemies}`, 12, 58); const f = 120, c = 8, p = 6, l = this.canvas.width - 12 - f; let x = 12; for (const a of this.enemies) { if (a.health <= 0) continue; const r = Math.max(0, Math.min(1, a.health / (a.maxHealth || 1))); this.ctx.fillStyle = "#2c3340", this.ctx.fillRect(l - 1, x - 1, f + 2, c + 2), this.ctx.fillStyle = a.color || "#95a3b3", this.ctx.fillRect(l, x, f * r, c), x += c + p } } spawnBomb() { const i = this.player.x + this.player.w / 2 - 8, e = this.player.y + this.player.h - 16, s = { x: i, y: e, w: 16, h: 16, vel: { x: this.player.vel.x * .4, y: 0 }, state: "fuse", fuse: 3 }; this.bombs.push(s) } updateBombs(t) { for (const i of this.bombs) i.state === "fuse" ? (i.fuse -= t, i.vel.y += this.gravity * t, i.x += i.vel.x * t, this.resolveBodyCollisions(i, "x"), i.y += i.vel.y * t, this.resolveBodyCollisions(i, "y") && (i.vel.x *= this.friction), i.fuse <= 0 && (i.state = "exploding", i.explosion = { t: 0, duration: .5, maxRadius: 90 }, this.applyExplosionEffects(i))) : i.state === "exploding" && i.explosion && (i.explosion.t += t, i.explosion.t >= i.explosion.duration && (i.state = "done")); this.bombs = this.bombs.filter(i => i.state !== "done") } applyExplosionEffects(t) { if (!t.explosion) return; const i = t.x + t.w / 2, e = t.y + t.h / 2, s = this.player.x + this.player.w / 2, o = this.player.y + this.player.h / 2, h = s - i, f = o - e, c = Math.hypot(h, f), p = t.explosion.maxRadius; if (c <= p) { const l = c > 0 ? h / c : 0, x = c > 0 ? f / c : -1, a = 1 - Math.min(1, c / p), y = Math.max(1, Math.round(50 * a)); this.playerHealth = Math.max(0, this.playerHealth - y), this.playerHurtTimer = Math.max(this.playerHurtTimer, .45); const m = 900 * a; this.player.vel.x += l * m, this.player.vel.y += x * m, this.player.onGround = !1 } for (const l of this.enemies) { if (l.health <= 0) continue; const x = l.x + l.w / 2, a = l.y + l.h / 2, r = x - i, y = a - e, n = Math.hypot(r, y); if (n > p + l.r) continue; const m = Math.min(t.w, t.h) / 2, u = n <= l.r + m, d = n > 0 ? r / n : 0, v = n > 0 ? y / n : -1, w = u ? 1 : 1 - Math.min(1, n / p), R = Math.max(1, Math.round(50 * w)), b = l.health > 0; l.health = Math.max(0, l.health - R), l.hurtTimer = .3, l.hurtRing = { t: 0, duration: .25 }, b && l.health <= 0 && this.handleEnemyDeath(l); const g = 700 * w; l.vel.x += d * g, l.vel.y += v * g, l.onGround = !1 } } updateEnemies(t) { let i = 0; for (const e of this.enemies) { if (e.health <= 0) continue; const s = e.dir * this.accel * .6; e.vel.x += s * t, e.vel.x = Math.max(-this.maxSpeedX * .6, Math.min(this.maxSpeedX * .6, e.vel.x)), e.onGround && Math.random() < .5 * t && (e.vel.y = this.jumpVelocity * .8, e.onGround = !1); const o = e.vel.x; if (e.vel.y += this.gravity * t, e.x += e.vel.x * t, this.resolveBodyCollisions(e, "x"), o !== 0 && e.vel.x === 0 && (e.dir = e.dir === 1 ? -1 : 1), e.y += e.vel.y * t, e.onGround = this.resolveBodyCollisions(e, "y"), e.onGround && (e.vel.x *= this.friction), e.x < 0 && (e.x = 0, e.vel.x = 0, e.dir = 1), e.x + e.w > this.canvas.width && (e.x = this.canvas.width - e.w, e.vel.x = 0, e.dir = -1), this.playerContactCooldown <= 0 && this.circleRectIntersect({ x: e.x + e.w / 2, y: e.y + e.h / 2, r: e.r }, this.player)) { this.playerHealth = Math.max(0, this.playerHealth - 15), this.playerHurtTimer = .35, this.playerContactCooldown = .6; const f = this.player.x + this.player.w / 2, c = this.player.y + this.player.h / 2, p = f - (e.x + e.w / 2), l = c - (e.y + e.h / 2), x = Math.hypot(p, l) || 1; this.player.vel.x += p / x * 400, this.player.vel.y += l / x * 200, this.player.onGround = !1 } e.health <= 0 && i++, e.hurtTimer > 0 && (e.hurtTimer = Math.max(0, e.hurtTimer - t)), e.hurtRing && (e.hurtRing.t += t, e.hurtRing.t >= e.hurtRing.duration && (e.hurtRing = void 0)) } if (i > 0) { const e = []; for (const s of this.enemies) s.health <= 0 && !s.deadProcessed && (s.deadProcessed = !0, e.push(s)); for (const s of e) this.handleEnemyDeath(s); this.kills = this.enemies.filter(s => s.health <= 0).length } } handleEnemyDeath(t) { if (t.tier > 1) { const i = [], e = Math.max(8, Math.floor(t.r * .65)), s = ["#5ad1ff", "#a3ff5a", "#ff5ad1", "#ffd15a", "#7c7cff", "#ff7c7c"]; for (let o = 0; o < 3; o++) { const h = o / 3 * Math.PI * 2, f = 140 + Math.random() * 60, c = { x: t.x + t.r - e, y: t.y + t.r - e, w: e * 2, h: e * 2, r: e, vel: { x: Math.cos(h) * f, y: -Math.abs(Math.sin(h)) * f }, onGround: !1, dir: Math.random() < .5 ? -1 : 1, health: 60, maxHealth: 60, hurtTimer: 0, tier: 1, deadProcessed: !1, color: s[Math.floor(Math.random() * s.length)] }; i.push(c) } this.enemies.push(...i), this.totalEnemies += i.length } } circleRectIntersect(t, i) { const e = Math.max(i.x, Math.min(t.x, i.x + i.w)), s = Math.max(i.y, Math.min(t.y, i.y + i.h)), o = t.x - e, h = t.y - s; return o * o + h * h <= t.r * t.r } reset() { this.player.x = 100, this.player.y = 280, this.player.vel.x = 0, this.player.vel.y = 0, this.player.onGround = !1, this.playerHealth = this.playerMaxHealth, this.playerHurtTimer = 0, this.playerContactCooldown = 0, this.bombs = [], this.enemies = []; const t = this.canvas.width - 80, i = [{ x: t, y: 220 }, { x: t, y: 260 }, { x: t, y: 300 }, { x: t, y: 372 }, { x: t - 60, y: 300 }, { x: t - 30, y: 372 }], e = ["#5ad1ff", "#a3ff5a", "#ff5ad1", "#ffd15a", "#7c7cff", "#ff7c7c"]; for (let s = 0; s < this.totalEnemies; s++) { const o = i[s % i.length], h = 14, f = { x: o.x - h, y: o.y - h, w: h * 2, h: h * 2, r: h, vel: { x: (Math.random() < .5 ? -1 : 1) * 60, y: 0 }, onGround: !1, dir: Math.random() < .5 ? -1 : 1, health: 100, maxHealth: 100, hurtTimer: 0, tier: 2, deadProcessed: !1, color: e[s % e.length] }; this.enemies.push(f) } this.kills = 0, this.timeRemaining = 300, this.state = "playing", this.hideOverlay() } showOverlay(t) { this.overlay && this.overlayTitle && (this.overlayTitle.textContent = t, this.overlay.classList.remove("hidden")) } hideOverlay() { this.overlay && this.overlay.classList.add("hidden") } win() { this.state === "playing" && (this.state = "won", this.showOverlay("You Win!")) } lose() { this.state === "playing" && (this.state = "lost", this.showOverlay("Game Over")) } } const C = document.getElementById("game"), H = new S(C); H.start();
+    </script>
+</body>
+
+</html>

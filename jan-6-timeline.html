@@ -409,7 +409,7 @@
     <div class="kb-hint">Press <strong>SPACE</strong> to Play/Pause &middot; Use <strong>⬇/⬆</strong> to Scrub</div>
 
     <script>
-        const timelineData = [
+const timelineData = [
             // --- PHASE 1: LEAD UP ---
             {
                 id: 'nov3', phase: 1, date: 'Nov 3-4, 2020',
@@ -417,7 +417,7 @@
                 text: 'Analysts had briefed Trump on the "Red Mirage"—early returns favoring him before mail-in ballots (Democrat-heavy) were counted. Ignoring his data team\'s warning that the path to victory was closed, Trump appears in the East Room at 2:30 AM to declare premature victory and demand "all voting stop."',
                 insight: {
                     who: 'Donald Trump',
-                    knew: 'Campaign data experts informed him the "Red Mirage" would fade and his mathematical path to victory was closed.',
+                    knew: 'Campaign data expert Matt Oczkowski informed him the "Red Mirage" would fade and his mathematical path to victory was closed.',
                     did: 'Declared victory anyway and framed the legitimate counting of ballots as disenfranchisement.'
                 }
             },
@@ -427,7 +427,7 @@
                 text: 'Networks project Joe Biden as the winner. Immediately, Trump tweets "I WON THIS ELECTION, BY A LOT!". Simultaneously, Rudy Giuliani holds a press conference at Four Seasons Total Landscaping, claiming widespread fraud to delegitimize the incoming administration.',
                 insight: {
                     who: 'Rudy Giuliani',
-                    knew: 'There was no evidence of widespread fraud.',
+                    knew: 'Legal teams had already failed to produce evidence in court filings.',
                     did: 'Launched a PR campaign at a landscaping business to undermine public faith in the election results.'
                 }
             },
@@ -435,12 +435,16 @@
                 id: 'nov18', phase: 1, date: 'Nov 18, 2020',
                 title: 'The Chesebro Memos',
                 text: 'Attorney Kenneth Chesebro sends a memo to the Trump campaign in Wisconsin, laying the intellectual groundwork for the "fake electors" scheme. It proposes alternate slates of electors to create a pretext for Pence to reject votes on Jan 6.',
-                insight: null
+                insight: {
+                    who: 'Kenneth Chesebro',
+                    knew: 'The plan was "bold" and likely to be rejected by the Supreme Court.',
+                    did: 'Drafted the legal architecture for using "alternate" electors to disrupt the certification.'
+                }
             },
             {
                 id: 'nov_kraken', phase: 1, date: 'Late Nov 2020',
                 title: 'The "Kraken" Lawsuits',
-                text: 'Sidney Powell files lawsuits alleging vast conspiracies involving Dominion Voting Systems, Venezuela, and Hugo Chávez. Though dismissed by courts, these claims radicalize a portion of the electorate.',
+                text: 'Sidney Powell files lawsuits alleging vast conspiracies involving Dominion Voting Systems, Venezuela, and Hugo Chávez. Though dismissed by 60+ courts, these claims radicalize a portion of the electorate.',
                 insight: null
             },
             {
@@ -454,10 +458,20 @@
                 }
             },
             {
+                id: 'dec13', phase: 1, date: 'Dec 13, 2020',
+                title: 'The "Real" Elector Deadline',
+                text: 'The day before the Electoral College meets, internal emails show the campaign scrambling to finalize "fake" certificates. Boris Epshteyn and Giuliani coordinate the logistics across seven states.',
+                insight: null
+            },
+            {
                 id: 'dec14', phase: 1, date: 'Dec 14, 2020',
                 title: 'Fake Electors Convene',
                 text: 'While legitimate electors certify Biden\'s win, groups of Republicans in 7 swing states meet to sign false certificates declaring themselves "duly elected." This was centrally coordinated by Giuliani and Meadows.',
-                insight: null
+                insight: {
+                    who: 'Mark Meadows',
+                    knew: 'The electors were not legally certified by state executives.',
+                    did: 'Pushed the "alternate slates" to the VP’s office via staff.'
+                }
             },
             {
                 id: 'dec18', phase: 1, date: 'Dec 18, 2020',
@@ -476,7 +490,7 @@
                 insight: {
                     who: 'Extremist Groups (Oath Keepers)',
                     knew: 'This was a call to action.',
-                    did: 'Began logistical planning for a "war," discussing weapons transport and tactics.'
+                    did: 'Began logistical planning for a "war," discussing weapons transport and "Quick Reaction Forces" (QRF) in Virginia.'
                 }
             },
             {
@@ -488,6 +502,12 @@
                     knew: 'He had lost Georgia multiple times (machine count, hand recount).',
                     did: 'Explicitly asked an official to "find" the exact number of votes needed to win by one.'
                 }
+            },
+            {
+                id: 'jan3', phase: 1, date: 'Jan 3, 2021',
+                title: 'DOJ Mutiny Threatened',
+                text: 'Trump considers replacing Acting AG Rosen with Jeffrey Clark to use the DOJ to send letters to states claiming fraud. The entire senior leadership of the DOJ and White House Counsel threaten to resign en masse.',
+                insight: null
             },
             {
                 id: 'jan4', phase: 1, date: 'Jan 4, 2021',
@@ -594,6 +614,12 @@
                 }
             },
             {
+                id: 'j6-1426', phase: 2, date: 'Jan 6', time: '2:26 PM',
+                title: 'Call to Senator Lee',
+                text: 'Trump calls Senator Mike Lee (intended for Tuberville) while the evacuation is in progress. He continues to lobby for delaying the certification while the Capitol is under siege.',
+                insight: null
+            },
+            {
                 id: 'j6-1444', phase: 2, date: 'Jan 6', time: '2:44 PM',
                 title: 'Ashli Babbitt Shot',
                 text: 'Ashli Babbitt is shot by a police officer while attempting to climb through a broken window into the Speaker\'s Lobby, adjacent to evacuating House members.',
@@ -628,6 +654,12 @@
                 insight: null
             },
             {
+                id: 'j6-1801', phase: 2, date: 'Jan 6', time: '6:01 PM',
+                title: 'The Final Word',
+                text: 'Trump tweets: "These are the things and events that happen when a sacred landslide election victory is so unceremoniously & viciously stripped away... Remember this day forever!"',
+                insight: null
+            },
+            {
                 id: 'j6-2000', phase: 2, date: 'Jan 6', time: '8:00 PM',
                 title: 'Capitol Secure',
                 text: 'Congress reconvenes. Pence states: "To those who wreaked havoc in our Capitol today, you did not win."',
@@ -654,43 +686,43 @@
                 insight: null
             },
             {
-                id: 'july2024', phase: 3, date: 'July 2024',
+                id: 'july2024', phase: 3, date: 'July 1, 2024',
                 title: 'Supreme Court Immunity Ruling',
-                text: 'In Trump v. United States, the Supreme Court rules Presidents have absolute immunity for "core constitutional acts." This halts the Jack Smith federal case for months.',
+                text: 'In Trump v. United States, the Supreme Court rules Presidents have absolute immunity for "core constitutional acts." This forces a massive revision of the Jack Smith indictment.',
                 insight: null
             },
             {
                 id: 'nov2024', phase: 3, date: 'Nov 5, 2024',
                 title: 'Trump Re-Elected',
-                text: 'Trump defeats Kamala Harris (312-226 Electoral Votes). The victory provides a political mandate to dismantle the legal cases against him.',
+                text: 'Trump defeats Kamala Harris (312-226 Electoral Votes). The victory provides the political mechanism to end the federal criminal prosecutions.',
                 insight: null
             },
             {
                 id: 'jan2025_doj', phase: 3, date: 'Jan 2025',
                 title: 'The Dismantling of Justice',
-                text: 'Jack Smith resigns; his cases are dropped. FBI Director Wray resigns; Trump appoints Kash Patel. The Georgia case is dismissed by a new special prosecutor.',
+                text: 'Following long-standing DOJ policy against prosecuting a sitting president, Jack Smith moves to dismiss federal cases. Trump’s inauguration signals a total pivot in DOJ leadership.',
                 insight: {
-                    who: 'The Executive Branch (2025)',
-                    knew: 'The investigations were based on grand jury indictments.',
-                    did: 'Dismissed them as "politically motivated" and purged leadership involved in the probes.'
+                    who: 'Department of Justice (2025)',
+                    knew: 'Policy prohibits the prosecution of a sitting executive.',
+                    did: 'Cases were closed and the special counsel office dissolved.'
                 }
             },
             {
                 id: 'jan2025_pardons', phase: 3, date: 'Jan 20, 2025',
                 title: 'Mass Pardons',
-                text: 'On Day 1, President Trump pardons nearly 1,500 Jan 6 defendants. He commutes the sentences of Proud Boys leader Enrique Tarrio and Oath Keepers leader Stewart Rhodes to "time served."',
+                text: 'In his first act, President Trump pardons a significant portion of Jan 6 defendants, calling them "hostages" and "patriots." High-profile leaders of extremist groups receive clemency.',
                 insight: null
             },
             {
                 id: 'june2025', phase: 3, date: 'June 2025',
                 title: 'Expungement of Impeachment',
-                text: 'The House passes H.Res. 25, officially "expunging" the 2021 impeachment for Incitement of Insurrection, declaring it "null and void."',
+                text: 'The GOP-led House passes a resolution to "expunge" the 2021 impeachment. While symbolic, it codifies the narrative shift within the legislative record.',
                 insight: null
             },
             {
                 id: 'jan2026', phase: 3, date: 'Jan 2026',
                 title: 'The New Paradigm',
-                text: 'By 2026, the mechanisms of accountability have been dismantled. The "Big Lie" is codified into executive policy, and the attackers are reframed as political martyrs.',
+                text: 'Accountability mechanisms from the 2021-2024 era are largely dismantled. The events of January 6 are officially reframed by the administration as a peaceful protest of a "stolen" election.',
                 insight: null
             }
         ];

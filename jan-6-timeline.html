@@ -3,7 +3,7 @@
 
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>The American Constitutional Crisis: 2020-2026</title>
     <style>
         :root {
@@ -24,6 +24,7 @@
             margin: 0;
             padding: 0;
             height: 100vh;
+            /* Prevent rubber-banding on iOS */
             overflow: hidden;
             display: flex;
             flex-direction: column;
@@ -68,6 +69,7 @@
             font-weight: 600;
             transition: all 0.2s;
             font-size: 0.9rem;
+            white-space: nowrap;
         }
 
         button:hover {
@@ -106,6 +108,8 @@
             padding: 40px;
             position: relative;
             scroll-behavior: auto;
+            /* Smooth scrolling for iOS */
+            -webkit-overflow-scrolling: touch;
         }
 
         .phase-marker {
@@ -223,6 +227,7 @@
             justify-content: flex-start;
             max-width: 500px;
             min-width: 350px;
+            z-index: 500;
         }
 
         .context-sticky {
@@ -345,6 +350,141 @@
             opacity: 0.8;
             z-index: 2000;
         }
+
+        /* --- MOBILE RESPONSIVE STYLES --- */
+        @media (max-width: 900px) {
+            header {
+                padding: 10px 15px;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 10px;
+            }
+
+            .header-title {
+                text-align: center;
+            }
+
+            .header-title h1 {
+                font-size: 1.2rem;
+            }
+
+            .header-title p {
+                display: none; /* Hide subtitle to save space */
+            }
+
+            .controls {
+                overflow-x: auto;
+                padding-bottom: 5px;
+                justify-content: flex-start;
+                -webkit-overflow-scrolling: touch;
+            }
+
+            button {
+                font-size: 0.8rem;
+                padding: 6px 12px;
+            }
+
+            /* Stack layout */
+            .main-container {
+                flex-direction: column;
+            }
+
+            /* Timeline Adjustments */
+            .timeline-container {
+                width: 100%;
+                padding: 20px 15px 40vh 15px; /* Large bottom padding for the fixed rail */
+            }
+
+            .timeline-item {
+                padding-left: 30px; /* Reduce indentation */
+                margin-bottom: 30px;
+            }
+
+            .timeline-item::before {
+                left: 6px; /* Move line close to edge */
+            }
+
+            .timeline-item::after {
+                left: 1px; /* Align dot with line */
+            }
+
+            .timeline-card {
+                padding: 15px;
+            }
+            
+            .timeline-card h3 {
+                font-size: 1.1rem;
+            }
+
+            .phase-marker {
+                margin: 40px 0 20px 0;
+                padding: 15px;
+                font-size: 1.1rem;
+            }
+
+            /* Context Rail -> Bottom Sheet */
+            .context-rail {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                width: 100%;
+                max-width: none;
+                min-width: 0;
+                height: auto;
+                max-height: 35vh; /* Limit height */
+                border-left: none;
+                border-top: 4px solid var(--accent-blue);
+                background: white;
+                padding: 0;
+                box-shadow: 0 -4px 15px rgba(0,0,0,0.15);
+                display: block; /* Override flex */
+                overflow-y: auto;
+            }
+
+            .context-sticky {
+                position: relative;
+                top: 0;
+            }
+
+            /* Hide images on mobile to prioritize text insight */
+            .context-image-container {
+                display: none !important;
+            }
+
+            .insight-card {
+                border-radius: 0;
+                box-shadow: none;
+                padding: 15px 20px;
+                border-left: 5px solid var(--accent-red);
+                transform: none;
+                opacity: 1; /* Always show if content exists */
+            }
+
+            .insight-header {
+                margin-bottom: 10px;
+            }
+
+            .insight-title {
+                font-size: 1.2rem;
+            }
+
+            .insight-box p {
+                font-size: 0.9rem;
+            }
+
+            .kb-hint {
+                display: none; /* Hide keyboard hints on touch devices */
+            }
+
+            footer {
+                padding: 20px;
+            }
+
+            .source-list {
+                column-count: 1;
+            }
+        }
     </style>
 </head>
 
@@ -359,7 +499,7 @@
             <button onclick="jumpTo('phase1')">The Fabrication</button>
             <button onclick="jumpTo('phase2')">The Attack</button>
             <button onclick="jumpTo('phase3')">Aftermath & Reversal</button>
-            <div style="width: 1px; height: 20px; background: #ccc; margin: 0 10px;"></div>
+            <div style="width: 1px; height: 20px; background: #ccc; margin: 0 10px; flex-shrink: 0;"></div>
             <button id="playPauseBtn" onclick="togglePlay()">▶ Play</button>
         </div>
     </header>
@@ -395,10 +535,9 @@
                 </div>
 
                 <div id="insight-container">
-                    <div style="text-align: center; color: #adb5bd; margin-top: 100px;">
-                        <p style="font-size: 1.1rem; margin-bottom: 10px;">Waiting for Timeline...</p>
-                        <p style="font-size: 0.9rem;">As events scroll, context on what figures <strong>KNEW</strong> vs
-                            what they <strong>DID</strong> will appear here.</p>
+                    <div style="text-align: center; color: #adb5bd; padding: 30px 10px;">
+                        <p style="font-size: 1rem; margin-bottom: 5px;">Waiting for Timeline...</p>
+                        <p style="font-size: 0.8rem;">Scroll to see what figures <strong>KNEW</strong> vs what they <strong>DID</strong>.</p>
                     </div>
                 </div>
 
@@ -409,7 +548,7 @@
     <div class="kb-hint">Press <strong>SPACE</strong> to Play/Pause &middot; Use <strong>⬇/⬆</strong> to Scrub</div>
 
     <script>
-const timelineData = [
+        const timelineData = [
             // --- PHASE 1: LEAD UP ---
             {
                 id: 'nov3', phase: 1, date: 'Nov 3-4, 2020',
@@ -890,7 +1029,7 @@ const timelineData = [
                 const html = `
                 <div class="insight-card visible">
                     <div class="insight-header">Knowledge vs. Action Analysis</div>
-                    <h2 id="insight-title" style="margin-top:0; color:#212529; font-size:1.4rem; margin-bottom:15px;">${data.insight.who}</h2>
+                    <h2 id="insight-title" style="margin-top:0; color:#212529; font-size:1.4rem; margin-bottom:15px;" class="insight-title">${data.insight.who}</h2>
                     <div class="insight-box knew-box">
                         <h5>WHAT THEY KNEW</h5>
                         <p>${data.insight.knew}</p>
@@ -905,9 +1044,9 @@ const timelineData = [
             } else {
                 // Show default message when no insight
                 insightContainer.innerHTML = `
-                <div style="text-align: center; color: #adb5bd; margin-top: 100px;">
-                    <p style="font-size: 1.1rem; margin-bottom: 10px;">Waiting for Timeline...</p>
-                    <p style="font-size: 0.9rem;">As events scroll, context on what figures <strong>KNEW</strong> vs what they <strong>DID</strong> will appear here.</p>
+                <div style="text-align: center; color: #adb5bd; padding: 30px 10px;">
+                    <p style="font-size: 1rem; margin-bottom: 5px;">Waiting for Timeline...</p>
+                    <p style="font-size: 0.8rem;">Scroll to see what figures <strong>KNEW</strong> vs what they <strong>DID</strong>.</p>
                 </div>
             `;
             }

@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Chompy Asteroids</title>
+<style>
+  html,body{margin:0;height:100%;background:#05060a;overflow:hidden;font-family:-apple-system,Segoe UI,Roboto,sans-serif;color:#cdd6ff}
+  #wrap{position:relative;width:100vw;height:100vh}
+  canvas{display:block;width:100%;height:100%}
+  #hud{position:absolute;top:12px;left:12px;background:rgba(12,16,32,.72);border:1px solid #233;border-radius:10px;padding:10px 14px;font-size:13px;line-height:1.5;backdrop-filter:blur(6px);pointer-events:none}
+  #hud b{color:#7fd0ff}
+  .bar{height:7px;width:170px;background:#1a2233;border-radius:4px;margin-top:3px;overflow:hidden}
+  .bar > i{display:block;height:100%;background:linear-gradient(90deg,#3df,#5f8)}
+  #help{position:absolute;bottom:12px;left:12px;font-size:12px;color:#7a89b8;background:rgba(12,16,32,.6);padding:8px 12px;border-radius:8px}
+  #tag{position:absolute;top:12px;right:12px;font-size:11px;color:#5566aa;letter-spacing:.5px}
+  kbd{background:#1c2438;border:1px solid #2e3a55;border-radius:4px;padding:1px 5px;font-size:11px}
+  #over{position:absolute;inset:0;display:none;align-items:center;justify-content:center;flex-direction:column;background:rgba(5,6,12,.78);text-align:center}
+  #over h1{font-size:34px;margin:0 0 8px}
+  #over button{margin-top:16px;padding:10px 22px;border-radius:8px;border:1px solid #3df;background:#10243a;color:#cdeeff;font-size:15px;cursor:pointer}
+  /* --- Achievements (Sub-Plan 01) --- */
+  #ach-open{position:absolute;top:12px;right:140px;padding:6px 12px;border-radius:8px;border:1px solid #2e3a55;background:rgba(16,36,58,.85);color:#cdeeff;font-size:12px;letter-spacing:.5px;cursor:pointer;backdrop-filter:blur(6px)}
+  #ach-open:hover{border-color:#3df;color:#eaf6ff}
+  #achievements{position:absolute;inset:0;display:none;align-items:center;justify-content:center;background:rgba(5,6,12,.82);backdrop-filter:blur(4px);z-index:20}
+  #achievements .panel{width:min(560px,92vw);max-height:82vh;overflow-y:auto;background:rgba(12,16,32,.96);border:1px solid #233;border-radius:14px;padding:18px 22px;box-shadow:0 18px 60px rgba(0,0,0,.6)}
+  #achievements .panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+  #achievements h2{font-size:20px;margin:0;color:#cdeeff}
+  #ach-count{font-size:12px;color:#7a89b8}
+  #ach-close{background:#10243a;border:1px solid #2e3a55;color:#cdeeff;border-radius:8px;padding:4px 10px;font-size:13px;cursor:pointer;margin-left:12px}
+  #ach-close:hover{border-color:#3df}
+  #ach-list .grp{font-size:11px;text-transform:uppercase;letter-spacing:1px;color:#5566aa;margin:14px 0 6px}
+  #ach-list .row{display:flex;align-items:flex-start;gap:10px;padding:8px 10px;border-radius:9px;margin-bottom:5px;background:rgba(26,34,51,.4);border:1px solid transparent}
+  #ach-list .row .mark{flex:0 0 auto;width:18px;text-align:center;font-size:14px;line-height:1.35}
+  #ach-list .row .name{font-weight:600;font-size:14px}
+  #ach-list .row .desc{font-size:12px;color:#8aa;margin-top:1px}
+  #ach-list .row.locked{opacity:.42}
+  #ach-list .row.earned{background:rgba(34,72,58,.42);border-color:#2f6;}
+  #ach-list .row.earned .name{color:#aef7cf}
+  #ach-list .row.earned .mark{color:#5f8}
+  #ach-toast{position:absolute;bottom:64px;right:16px;display:flex;flex-direction:column;gap:8px;z-index:25;pointer-events:none}
+  .ach-toast-item{min-width:220px;background:rgba(16,36,58,.94);border:1px solid #3df;border-left:4px solid #5f8;border-radius:10px;padding:9px 14px;box-shadow:0 8px 28px rgba(0,0,0,.5);animation:ach-slide .35s ease-out, ach-fade .5s ease-in 2.5s forwards}
+  .ach-toast-item .t-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:#5f8}
+  .ach-toast-item .t-name{font-size:14px;font-weight:600;color:#eaf6ff;margin-top:2px}
+  @keyframes ach-slide{from{transform:translateX(40px);opacity:0}to{transform:translateX(0);opacity:1}}
+  @keyframes ach-fade{to{opacity:0;transform:translateX(40px)}}
+</style>
+  <script type="module" crossorigin src="./assets/index-poYcspdg.js"></script>
+  <link rel="modulepreload" crossorigin href="./assets/Geometry-BC0Wzmsf.js">
+  <link rel="modulepreload" crossorigin href="./assets/RenderTargetSystem-Rud0amiM.js">
+</head>
+<body>
+<div id="wrap">
+  <div id="hud">
+    <div>Your mass: <b id="mass">100</b></div>
+    <div>Rank: <b id="rank">—</b> of <b id="total">—</b></div>
+    <div>Largest mass: <b id="biggest">—</b></div>
+    <div class="bar"><i id="growth" style="width:10%"></i></div>
+  </div>
+  <div id="help"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> = thrust &nbsp;·&nbsp; <kbd>M</kbd> = Achievements &nbsp;·&nbsp; <b>slow</b> touch = squash &nbsp;·&nbsp; <b>medium</b> = chip &amp; bounce &nbsp;·&nbsp; <b>fast</b> = smash into real rocks</div>
+  <div id="tag">RENDER SPINE · mock bodies · PixiJS v8</div>
+  <button id="ach-open">★ Achievements</button>
+  <div id="over"><h1 id="otitle">Consumed.</h1><div id="osub"></div><button id="again">Respawn</button></div>
+  <div id="achievements">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Achievements</h2>
+        <div style="display:flex;align-items:center"><span id="ach-count">0 / 0</span><button id="ach-close">Close</button></div>
+      </div>
+      <div id="ach-list"></div>
+    </div>
+  </div>
+  <div id="ach-toast"></div>
+</div>
+</body>
+</html>

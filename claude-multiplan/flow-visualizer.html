@@ -1,0 +1,1031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plan Reader — Flow Visualizer</title>
+<style>
+  :root {
+    --bg: #16181d;
+    --panel: #1e2128;
+    --panel-2: #23262e;
+    --border: #343945;
+    --text: #d8dce4;
+    --muted: #8b919e;
+    --accent: #5b9cf5;
+    --accent-soft: rgba(91, 156, 245, 0.18);
+    --green: #3fbf6f;
+    --green-soft: rgba(63, 191, 111, 0.20);
+    --red: #e5605c;
+    --red-soft: rgba(229, 96, 92, 0.20);
+    --orange: #e09a3e;
+    --orange-soft: rgba(224, 154, 62, 0.20);
+    --purple: #a78bfa;
+    --purple-soft: rgba(167, 139, 250, 0.18);
+    --edge: #4a5060;
+    --edge-label: #7d8494;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .wrap { max-width: 1620px; margin: 0 auto; padding: 20px 24px 32px; }
+  header h1 { font-size: 22px; margin: 0 0 6px; font-weight: 650; }
+  header p.intro { color: var(--muted); margin: 0 0 16px; max-width: 900px; }
+
+  #error-banner {
+    display: none;
+    background: var(--red-soft); border: 1px solid var(--red); color: var(--red);
+    border-radius: 8px; padding: 10px 14px; margin-bottom: 14px;
+    font-size: 13px; white-space: pre-wrap;
+  }
+  #error-banner.show { display: block; }
+
+  .layout { display: flex; gap: 18px; align-items: flex-start; }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar {
+    width: 256px;
+    flex: 0 0 256px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px;
+    position: sticky;
+    top: 14px;
+  }
+  .sidebar h2 {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted); margin: 2px 0 8px; font-weight: 600;
+  }
+  .flow-btn {
+    display: block; width: 100%; text-align: left;
+    background: transparent; color: var(--text);
+    border: 1px solid transparent; border-radius: 7px;
+    padding: 7px 9px; margin-bottom: 3px;
+    font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .flow-btn:hover { background: var(--panel-2); }
+  .flow-btn.active {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .controls { margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .controls .row { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }
+  .ctl-btn {
+    background: var(--panel-2); color: var(--text);
+    border: 1px solid var(--border); border-radius: 7px;
+    padding: 6px 10px; font: inherit; font-size: 13px; cursor: pointer;
+  }
+  .ctl-btn:hover:not(:disabled) { border-color: var(--accent); }
+  .ctl-btn:disabled { opacity: 0.4; cursor: default; }
+  .ctl-btn.active { background: var(--accent-soft); border-color: var(--accent); color: #fff; }
+  .ctl-label { font-size: 11px; color: var(--muted); margin: 6px 0 4px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+  /* ---------- Legend ---------- */
+  .legend {
+    margin-top: 14px; border-top: 1px solid var(--border); padding-top: 12px;
+    font-size: 12px; color: var(--muted);
+  }
+  .legend .item { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+  .swatch {
+    width: 16px; height: 16px; border-radius: 4px; flex: 0 0 16px;
+    border: 1px solid var(--border); background: var(--panel-2);
+  }
+  .swatch.current { border: 2px solid var(--accent); box-shadow: 0 0 8px rgba(91,156,245,0.7); }
+  .swatch.visited { background: var(--accent-soft); border-color: rgba(91,156,245,0.4); }
+  .swatch.green { background: var(--green-soft); border: 2px solid var(--green); }
+  .swatch.red { background: var(--red-soft); border: 2px solid var(--red); }
+  .swatch.orange { background: var(--orange-soft); border: 2px solid var(--orange); }
+  .swatch.review { background: var(--purple-soft); border: 2px solid var(--purple); }
+  .swatch.done { background: var(--green-soft); border-color: rgba(63,191,111,0.4); }
+  .swatch.arrow { background: none; border: none; position: relative; }
+  .swatch.arrow::after {
+    content: "→"; color: var(--edge); font-size: 15px; position: absolute;
+    left: 0; top: 50%; transform: translateY(-58%);
+  }
+  .swatch.descend { background: none; border: none; position: relative; }
+  .swatch.descend::after {
+    content: "⇢"; color: var(--accent); font-size: 15px; position: absolute;
+    left: 0; top: 50%; transform: translateY(-58%);
+  }
+  .legend .badge { margin: 0; }
+  .badge {
+    display: inline-block;
+    font-size: 10px; font-weight: 600; letter-spacing: 0.03em;
+    padding: 1px 7px; border-radius: 99px;
+    background: #3a3f4b; color: #aab0bc;
+  }
+  .badge.accept { background: rgba(224,154,62,0.22); color: var(--orange); border: 1px solid rgba(224,154,62,0.5); }
+  .badge.dotted-id { background: #3a3f4b; color: #aab0bc; font-weight: 700; letter-spacing: 0.04em; }
+
+  /* ---------- Main + panels ---------- */
+  .main { flex: 1; min-width: 0; }
+  .panels { display: flex; gap: 18px; align-items: flex-start; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 12px 14px;
+  }
+  .panel.a { flex: 1.45; min-width: 0; }
+  .panel.b { flex: 1; min-width: 0; }
+  .panel h3 { margin: 0 0 4px; font-size: 14px; font-weight: 650; }
+  .panel p.sub { margin: 0 0 8px; font-size: 12px; color: var(--muted); }
+  .panel svg { width: 100%; height: auto; display: block; }
+
+  /* --- SVG: chrome --- */
+  .orch-outline { fill: none; stroke: var(--border); stroke-width: 1.2; }
+  .orch-outline-bg { fill: rgba(0,0,0,0.10); stroke: none; }
+  .orch-label, .band-label {
+    fill: var(--muted); font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+  }
+
+  /* --- SVG: algorithm states (panel A) --- */
+  .state .box {
+    fill: var(--panel-2);
+    stroke: var(--border);
+    stroke-width: 1.2;
+    transition: fill 0.25s ease, stroke 0.25s ease, filter 0.25s ease;
+  }
+  .state .name { fill: var(--text); font-size: 13px; font-weight: 600; }
+  .state .subcap { fill: var(--muted); font-size: 10px; }
+  .state .badge-pill { fill: #3a3f4b; stroke: none; }
+  .state .badge-text { fill: #aab0bc; font-size: 10px; font-weight: 600; letter-spacing: 0.03em; }
+  .state .badge-pill.accept { fill: rgba(224,154,62,0.22); stroke: rgba(224,154,62,0.5); stroke-width: 1; }
+  .state .badge-text.accept { fill: var(--orange); }
+
+  .state.review-state .box { fill: rgba(167,139,250,0.08); stroke: rgba(167,139,250,0.45); }
+
+  .state.visited .box {
+    fill: rgba(91,156,245,0.16);
+    stroke: rgba(91,156,245,0.45);
+  }
+  .state.current .box {
+    stroke: var(--accent);
+    stroke-width: 2.2;
+    fill: #262c3a;
+    filter: drop-shadow(0 0 8px rgba(91,156,245,0.75));
+  }
+  .state.review-state.current .box {
+    stroke: var(--purple);
+    fill: rgba(167,139,250,0.14);
+    filter: drop-shadow(0 0 8px rgba(167,139,250,0.75));
+  }
+  .state.current.tone-green .box {
+    stroke: var(--green);
+    fill: rgba(63,191,111,0.16);
+    filter: drop-shadow(0 0 8px rgba(63,191,111,0.75));
+  }
+  .state.current.tone-red .box {
+    stroke: var(--red);
+    fill: rgba(229,96,92,0.16);
+    filter: drop-shadow(0 0 8px rgba(229,96,92,0.75));
+  }
+  .state.current.tone-orange .box {
+    stroke: var(--orange);
+    fill: rgba(224,154,62,0.16);
+    filter: drop-shadow(0 0 8px rgba(224,154,62,0.75));
+  }
+  .state.current {
+    animation: spulse 0.45s ease;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  @keyframes spulse {
+    0% { transform: scale(1.0); }
+    50% { transform: scale(1.06); }
+    100% { transform: scale(1.0); }
+  }
+
+  /* --- SVG: edges --- */
+  .edge .line {
+    fill: none;
+    stroke: var(--edge);
+    stroke-width: 1.6;
+    marker-end: url(#arrow-base);
+    transition: stroke 0.25s ease;
+  }
+  .edge.descend .line { stroke-dasharray: 5 5; }
+  .edge text { fill: var(--edge-label); font-size: 10.5px; transition: fill 0.25s ease; }
+  .edge.visited .line {
+    stroke: rgba(91,156,245,0.55);
+    marker-end: url(#arrow-visited);
+  }
+  .edge.visited text { fill: rgba(91,156,245,0.75); }
+  .edge.current .line {
+    stroke: var(--accent);
+    stroke-width: 2.6;
+    marker-end: url(#arrow-current);
+    stroke-dasharray: 7 5;
+    animation: dashflow 0.55s linear infinite;
+    filter: drop-shadow(0 0 3px rgba(91,156,245,0.8));
+  }
+  .edge.current text { fill: #dfe3ea; font-weight: 600; }
+  .edge.current.tone-green .line {
+    stroke: var(--green);
+    marker-end: url(#arrow-green);
+    filter: drop-shadow(0 0 3px rgba(63,191,111,0.8));
+  }
+  .edge.current.tone-green text { fill: var(--green); }
+  .edge.current.tone-red .line {
+    stroke: var(--red);
+    marker-end: url(#arrow-red);
+    filter: drop-shadow(0 0 3px rgba(229,96,92,0.8));
+  }
+  .edge.current.tone-red text { fill: var(--red); }
+  .edge.current.tone-orange .line {
+    stroke: var(--orange);
+    marker-end: url(#arrow-orange);
+    filter: drop-shadow(0 0 3px rgba(224,154,62,0.8));
+  }
+  .edge.current.tone-orange text { fill: var(--orange); }
+  @keyframes dashflow { to { stroke-dashoffset: -24; } }
+
+  /* --- SVG: tree nodes (panel B) --- */
+  .tnode .tbox {
+    fill: var(--panel-2);
+    stroke: var(--border);
+    stroke-width: 1.2;
+    transition: fill 0.25s ease, stroke 0.25s ease, filter 0.25s ease;
+  }
+  .tnode.container .tbox { fill: rgba(0,0,0,0.12); }
+  .tnode .tname { fill: var(--text); font-size: 13px; font-weight: 600; }
+  .tnode .tsub { fill: var(--muted); font-size: 10.5px; }
+  .tnode .id-pill { fill: #3a3f4b; }
+  .tnode .id-text { fill: #aab0bc; font-size: 10px; font-weight: 700; letter-spacing: 0.04em; }
+  .tnode.visited .tbox { stroke: rgba(91,156,245,0.45); }
+  .tnode.done .tbox { fill: rgba(63,191,111,0.10); stroke: rgba(63,191,111,0.45); }
+  .tnode.done .id-pill { fill: rgba(63,191,111,0.22); }
+  .tnode.done .id-text { fill: var(--green); }
+  .tnode.current .tbox {
+    stroke: var(--accent);
+    stroke-width: 2.2;
+    filter: drop-shadow(0 0 8px rgba(91,156,245,0.75));
+  }
+  .tnode.current.tone-green .tbox {
+    stroke: var(--green);
+    filter: drop-shadow(0 0 8px rgba(63,191,111,0.75));
+  }
+  .tnode.current.tone-red .tbox {
+    stroke: var(--red);
+    fill: rgba(229,96,92,0.12);
+    filter: drop-shadow(0 0 8px rgba(229,96,92,0.75));
+  }
+  .tnode.current.tone-orange .tbox {
+    stroke: var(--orange);
+    fill: rgba(224,154,62,0.12);
+    filter: drop-shadow(0 0 8px rgba(224,154,62,0.75));
+  }
+
+  svg text { user-select: none; pointer-events: none; }
+
+  /* ---------- Caption bar ---------- */
+  .caption-bar {
+    margin-top: 16px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex; align-items: baseline; gap: 14px;
+    min-height: 46px;
+  }
+  .caption-bar .counter {
+    flex: 0 0 auto; font-variant-numeric: tabular-nums;
+    color: var(--muted); font-size: 13px; font-weight: 600;
+  }
+  .caption-bar .caption { font-size: 14px; }
+  .caption-bar .caption.tone-green { color: var(--green); }
+  .caption-bar .caption.tone-red { color: var(--red); }
+  .caption-bar .caption.tone-orange { color: var(--orange); }
+  .caption-bar .placeholder { color: var(--muted); font-style: italic; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Plan Reader — Flow Visualizer</h1>
+    <p class="intro">The app's recursive multiplan machine: ONE node algorithm that every plan node — the root included — runs (recon → sizer → split or leaf). Panel A shows the algorithm plus the session band it lives inside; Panel B walks a concrete depth-2 example tree. Children get hierarchical dotted ids (02 → 02.01); between siblings the parent runs a no-tools review turn that can inject an ADJUST note into the next child.</p>
+  </header>
+
+  <div id="error-banner"></div>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <h2>Flows</h2>
+      <div id="flow-list"></div>
+
+      <div class="controls">
+        <div class="row">
+          <button class="ctl-btn" id="btn-replay" disabled>Replay</button>
+        </div>
+        <div class="ctl-label">Speed</div>
+        <div class="row" id="speed-row">
+          <button class="ctl-btn" data-speed="2400">Slow</button>
+          <button class="ctl-btn active" data-speed="1500">Normal</button>
+          <button class="ctl-btn" data-speed="700">Fast</button>
+        </div>
+        <div class="ctl-label">Step mode</div>
+        <div class="row">
+          <button class="ctl-btn" id="btn-prev" disabled>&larr; Prev</button>
+          <button class="ctl-btn" id="btn-next" disabled>Next &rarr;</button>
+        </div>
+      </div>
+
+      <div class="legend">
+        <div class="item"><span class="swatch current"></span> current step</div>
+        <div class="item"><span class="swatch visited"></span> visited (this node's pass)</div>
+        <div class="item"><span class="swatch green"></span> approval / success</div>
+        <div class="item"><span class="swatch red"></span> deny / error</div>
+        <div class="item"><span class="swatch orange"></span> executing</div>
+        <div class="item"><span class="swatch review"></span> parent review (no-tools turn)</div>
+        <div class="item"><span class="swatch done"></span> node summarized (tree)</div>
+        <div class="item"><span class="swatch arrow"></span> transition (always shown)</div>
+        <div class="item"><span class="swatch descend"></span> descend/recurse edge</div>
+        <div class="item"><span class="badge dotted-id">02.01</span> hierarchical dotted id</div>
+        <div class="item"><span class="badge">plan</span> read-only policy</div>
+        <div class="item"><span class="badge accept">acceptEdits</span> the only writable state</div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="panels">
+        <section class="panel a">
+          <h3>Session + the recursive node algorithm</h3>
+          <p class="sub">Every node in the tree runs exactly this — Panel A re-lights from the top each time the walk enters a node. Resuming, summary, and parent-review turns are all watchdog-covered.</p>
+          <svg id="diagram-a" viewBox="0 0 870 1080" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Session band and recursive node algorithm state machine">
+            <defs>
+              <marker id="arrow-base" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="9" refX="8" refY="4" orient="auto">
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="#4a5060"/>
+              </marker>
+              <marker id="arrow-visited" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="9" refX="8" refY="4" orient="auto">
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="rgba(91,156,245,0.55)"/>
+              </marker>
+              <marker id="arrow-current" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="9" refX="8" refY="4" orient="auto">
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="#5b9cf5"/>
+              </marker>
+              <marker id="arrow-green" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="9" refX="8" refY="4" orient="auto">
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="#3fbf6f"/>
+              </marker>
+              <marker id="arrow-red" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="9" refX="8" refY="4" orient="auto">
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="#e5605c"/>
+              </marker>
+              <marker id="arrow-orange" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="9" refX="8" refY="4" orient="auto">
+                <path d="M 0 0 L 8 4 L 0 8 z" fill="#e09a3e"/>
+              </marker>
+            </defs>
+
+            <text class="band-label" x="20" y="134">Session</text>
+            <rect class="orch-outline-bg" x="10" y="142" width="850" height="928" rx="14"/>
+            <rect class="orch-outline" x="10" y="142" width="850" height="928" rx="14"/>
+            <text class="orch-label" x="26" y="166">Recursive node algorithm — runs at EVERY node, inside a live session</text>
+
+            <g id="a-edges"></g>
+            <g id="a-states"></g>
+          </svg>
+        </section>
+
+        <section class="panel b">
+          <h3>Walkthrough — the example tree</h3>
+          <p class="sub">Root splits into 01 (leaf) and 02 (a nested split into 02.01 and 02.02). Parent reviews run between siblings: after 01 (before 02), and after 02.01 (before 02.02).</p>
+          <svg id="diagram-b" viewBox="0 0 520 560" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Example plan tree">
+            <g id="b-nodes"></g>
+          </svg>
+        </section>
+      </div>
+
+      <div class="caption-bar">
+        <span class="counter" id="step-counter"></span>
+        <span class="caption placeholder" id="caption">Select a flow on the left to begin.</span>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+/* =========================================================================
+   PANEL A — session band + the recursive node algorithm
+   (hand-placed on an 870 x 1080 canvas; band on top, algorithm inside the
+   rounded container).
+   ========================================================================= */
+
+// id -> { x, y, w, h, label, badge?, sub?, cls? }
+const A_STATES = {
+  // --- session band (top) ---
+  NoSession: { x: 20,  y: 58, w: 150, h: 52, label: "No session" },
+  Composer:  { x: 232, y: 58, w: 150, h: 52, label: "Composer open" },
+  Live:      { x: 444, y: 58, w: 150, h: 52, label: "Session live" },
+  IdleDone:  { x: 656, y: 58, w: 150, h: 52, label: "Idle after done", sub: "follow-up chat" },
+  // --- node algorithm: shared spine ---
+  Enter:   { x: 325, y: 186, w: 170, h: 58, label: "Enter node", sub: "id assigned by parent", badge: "plan" },
+  Recon:   { x: 325, y: 288, w: 170, h: 58, label: "Recon", badge: "plan" },
+  Sizer:   { x: 325, y: 384, w: 170, h: 58, label: "Sizer", badge: "plan" },
+  // --- composite branch (left column) ---
+  DDraft:  { x: 170, y: 492, w: 195, h: 58, label: "Decomposition draft", badge: "plan" },
+  DGate:   { x: 170, y: 600, w: 195, h: 58, label: "DECOMPOSITION GATE",  badge: "plan" },
+  Recurse: { x: 170, y: 708, w: 195, h: 58, label: "Recurse: child 1..N ↻", badge: "plan" },
+  Review:  { x: 170, y: 816, w: 195, h: 58, label: "Parent review", sub: "no-tools turn · watchdogged", badge: "plan", cls: "review-state" },
+  Rollup:  { x: 170, y: 952, w: 195, h: 58, label: "Roll-up / complete", sub: "non-root writes roll-up · root just completes", badge: "plan" },
+  // --- leaf branch (right column) ---
+  PDraft:  { x: 540, y: 492, w: 195, h: 58, label: "Plan draft", badge: "plan" },
+  PGate:   { x: 540, y: 600, w: 195, h: 58, label: "PLAN GATE",  badge: "plan" },
+  Exec:    { x: 540, y: 708, w: 195, h: 58, label: "Execute",    badge: "accept" },
+  LeafSum: { x: 540, y: 816, w: 195, h: 58, label: "Summary", sub: "watchdogged turn", badge: "plan" }
+};
+
+// id "from->to" (lowercased A-state ids) -> { d, label?, lx?, ly?, anchor?, tone?, descend? }
+const A_EDGES = {
+  // --- session band ---
+  "nosession->composer": { d: "M 170 84 L 232 84", label: "New plan", lx: 201, ly: 75 },
+  "composer->live":      { d: "M 382 84 L 444 84", label: ["Start —", "fresh sidecar"], lx: 413, ly: 64 },
+  "live->nosession":     { d: "M 500 58 C 480 16, 130 16, 105 58", label: "Stop / FATAL — sidecar killed", lx: 300, ly: 24, tone: "red" },
+  "idledone->nosession": { d: "M 720 58 C 700 2, 120 2, 75 58", label: "Stop", lx: 400, ly: 11, tone: "red" },
+  // --- session -> algorithm ---
+  "live->enter":         { d: "M 519 110 C 519 152, 410 148, 410 186" },
+  // --- spine ---
+  "enter->recon":        { d: "M 410 244 L 410 288" },
+  "recon->sizer":        { d: "M 410 346 L 410 384" },
+  "sizer->ddraft":       { d: "M 360 442 C 300 466, 267 462, 267 492", label: "split into N", lx: 250, ly: 468, anchor: "end" },
+  "sizer->pdraft":       { d: "M 460 442 C 540 466, 637 458, 637 492", label: ["leaf — the node ITSELF", "becomes the plan"], lx: 516, ly: 463, anchor: "middle" },
+  // ROOT confident single: collapse to one child (the child skips its sizer)
+  "sizer->enter":        { d: "M 325 410 C 240 400, 240 236, 325 214", label: ["ROOT single — collapse", "to one child 01", "(01 skips its sizer)"], lx: 228, ly: 282, anchor: "end", descend: true },
+  "recon->pdraft":       { d: "M 495 314 C 640 322, 680 420, 680 492", label: ["collapsed child —", "sizer skipped"], lx: 700, ly: 392, anchor: "start" },
+  // --- composite branch ---
+  "ddraft->dgate":       { d: "M 267 550 L 267 600", label: "submit for review", lx: 278, ly: 580, anchor: "start" },
+  "dgate->ddraft":       { d: "M 205 600 C 166 584, 166 566, 205 550", label: ["deny + feedback —", "same-turn redraft"], lx: 158, ly: 566, anchor: "end", tone: "red" },
+  "dgate->recurse":      { d: "M 267 658 L 267 708", label: ["approve — interrupt +", "deferred first-child recon"], lx: 278, ly: 676, anchor: "start", tone: "green" },
+  "recurse->enter":      { d: "M 170 732 C 70 718, 52 350, 95 280 C 110 252, 230 232, 325 230", label: ["descend into first child", "(id grows: 02 → 02.01)"], lx: 80, ly: 672, anchor: "start", descend: true },
+  "recurse->review":     { d: "M 267 766 L 267 816", label: ["child done —", "siblings remain"], lx: 278, ly: 788, anchor: "start" },
+  "review->enter":       { d: "M 170 840 C 42 824, 20 330, 60 260 C 78 230, 220 206, 325 198", label: ["ADJUST note or NONE —", "next child's recon", "(note injects into its prompts)"], lx: 34, ly: 480, anchor: "start", descend: true },
+  "recurse->rollup":     { d: "M 330 766 C 400 800, 410 890, 340 952", label: ["after LAST child —", "review skipped"], lx: 416, ly: 846, anchor: "start" },
+  "rollup->recurse":     { d: "M 170 975 C 118 948, 118 770, 170 742", label: ["ascend ↑ —", "parent continues"], lx: 110, ly: 902, anchor: "end" },
+  // --- leaf branch ---
+  "pdraft->pgate":       { d: "M 637 550 L 637 600", label: "submit for review", lx: 648, ly: 580, anchor: "start" },
+  "pgate->pdraft":       { d: "M 700 600 C 739 584, 739 566, 700 550", label: ["deny + feedback —", "same-turn redraft"], lx: 744, ly: 566, anchor: "start", tone: "red" },
+  "pgate->exec":         { d: "M 637 658 L 637 708", label: ["approve — flips", "to acceptEdits"], lx: 648, ly: 676, anchor: "start", tone: "green" },
+  "exec->leafsum":       { d: "M 637 766 L 637 816" },
+  "leafsum->recurse":    { d: "M 540 845 C 460 845, 420 790, 365 745", label: "leaf done — ascend ↑", lx: 478, ly: 818, anchor: "middle" },
+  // --- run completion: root finishes -> session idles ---
+  "rollup->idledone":    { d: "M 365 980 C 780 962, 838 640, 838 330 C 838 180, 790 124, 731 112", label: ["ROOT complete —", "run done"], lx: 830, ly: 692, anchor: "end" }
+};
+
+/* =========================================================================
+   PANEL B — the example tree (nested boxes on 520 x 560).
+   ========================================================================= */
+
+// id -> { x, y, w, h, idLabel, label, sub?, container? }
+const TREE = {
+  root:  { x: 14, y: 14,  w: 492, h: 532, idLabel: "ROOT",  label: "Master — your request", sub: "splits into 01 + 02 · reviews 01 before descending into 02", container: true },
+  n01:   { x: 44, y: 76,  w: 432, h: 84,  idLabel: "01",    label: "Sub-plan", sub: "leaf: plan → gate → execute → summary" },
+  n02:   { x: 44, y: 188, w: 432, h: 332, idLabel: "02",    label: "Nested split", sub: "its OWN gate + reviews + roll-up summary", container: true },
+  n0201: { x: 74, y: 260, w: 372, h: 100, idLabel: "02.01", label: "leaf", sub: "plan → gate → execute → summary" },
+  n0202: { x: 74, y: 392, w: 372, h: 100, idLabel: "02.02", label: "leaf", sub: "plan → gate → execute → summary" }
+};
+
+/* =========================================================================
+   Flows.
+   step: { node, a, caption, tone?, aEdge?, mark? }
+     node : tree node id highlighted in Panel B (null = session-only step,
+            nothing highlighted in the tree)
+     a    : Panel A state id (or null for tree/caption-only steps)
+     tone : "green" | "red" | "orange"
+     aEdge: explicit Panel-A edge id override, or null for "no edge"
+     mark : [[treeNodeId, "done"], ...] persistent tree marks applied at this step
+   When aEdge is omitted it derives from the previous step:
+   same node + both have `a` + different `a`  ->  "preva->thisa".
+   Node changes and null `a`s derive to no edge.
+   ========================================================================= */
+
+function leafCycle(node, id, enterEdge, withNote) {
+  return [
+    { node: node, a: "Enter",   aEdge: enterEdge, caption: "Descend into " + id + " — the SAME algorithm re-enters, one level deeper" },
+    { node: node, a: "Recon",   caption: id + " recon — scope just this node" + (withNote ? "; the parent's ADJUST note (if any) is injected into its prompts" : "") },
+    { node: node, a: "Sizer",   caption: id + " sizer: leaf — the node ITSELF becomes the plan (no collapse for non-root singles)" },
+    { node: node, a: "PDraft",  caption: id + " plan drafted" },
+    { node: node, a: "PGate",   caption: "PLAN GATE — " + id + " held for YOUR approval" },
+    { node: node, a: "PGate",   tone: "green", caption: "You approve " + id + " — write policy flips to acceptEdits" },
+    { node: node, a: "Exec",    tone: "orange", caption: id + " executes — the ONLY writable state" },
+    { node: node, a: "LeafSum", caption: id + " summary written (watchdogged turn) — leaf complete", mark: [[node, "done"]] }
+  ];
+}
+
+const FLOWS = [
+  {
+    id: "play-example",
+    label: "Play the example",
+    steps: [
+      { node: null,   a: "Live",   caption: "Inside a live session — the walk starts at the root node" },
+      { node: "root", a: "Enter",  aEdge: "live->enter", caption: "Root enters — the root is just the first node" },
+      { node: "root", a: "Recon",  caption: "Root recon — scope the whole request" },
+      { node: "root", a: "Sizer",  caption: "Root sizer: too big for one plan — split" },
+      { node: "root", a: "DDraft", caption: "Root decomposition drafted: two children — 01 and 02" },
+      { node: "root", a: "DGate",  caption: "DECOMPOSITION GATE — the root's child list held for YOUR approval" },
+      { node: "root", a: "DGate",  tone: "green", caption: "You approve — the turn is interrupted; the first child's recon is deferred until the result arrives" },
+      { node: "root", a: "Recurse", caption: "Recurse: walk the children depth-first — first child: 01" }
+    ].concat(
+      leafCycle("n01", "01", "recurse->enter", false),
+      [
+        { node: "root", a: "Recurse", aEdge: "leafsum->recurse", caption: "01 done — ascend; sibling 02 remains, so the root reviews first" },
+        { node: "root", a: "Review",  caption: "PARENT REVIEW — the root runs a no-tools review turn over 01's summary (watchdog-covered, like resuming + summary turns)" },
+        { node: "n02",  a: "Enter",   aEdge: "review->enter",   caption: "Review emits ADJUST note or NONE — descend into 02 carrying the outcome" },
+        { node: "n02",  a: "Recon",   caption: "02 recon — any ADJUST note is injected into 02's prompts" },
+        { node: "n02",  a: "Sizer",   caption: "02 sizer: still too big — 02 splits again" },
+        { node: "n02",  a: "DDraft",  caption: "02's OWN decomposition drafted: children 02.01 and 02.02 (dotted ids encode the path)" },
+        { node: "n02",  a: "DGate",   caption: "02 is itself a parent — the SAME gate runs one level deeper; held for YOUR approval" },
+        { node: "n02",  a: "DGate",   tone: "green", caption: "You approve 02's decomposition — EVERY decomposition approval (root AND nested) fires the interrupt + deferred first-child recon" },
+        { node: "n02",  a: "Recurse", caption: "Recurse into 02's children — first: 02.01" }
+      ],
+      leafCycle("n0201", "02.01", "recurse->enter", false),
+      [
+        { node: "n02", a: "Recurse", aEdge: "leafsum->recurse", caption: "02.01 done — ascend to 02's recurse; sibling 02.02 remains" },
+        { node: "n02", a: "Review",  caption: "02 runs ITS OWN parent review over 02.01's summary — ADJUST note or NONE" }
+      ],
+      leafCycle("n0202", "02.02", "review->enter", true),
+      [
+        { node: "n02",  a: "Recurse", aEdge: "leafsum->recurse", caption: "02.02 was 02's LAST child — the parent review is skipped" },
+        { node: "n02",  a: "Rollup",  tone: "green", mark: [["n02", "done"]], caption: "02 is a NON-ROOT split — it writes a roll-up summary after its last child" },
+        { node: "root", a: "Recurse", aEdge: "rollup->recurse", caption: "Ascend to the root — 02 was the root's last child, so no review" },
+        { node: "root", a: "Rollup",  tone: "green", mark: [["root", "done"]], caption: "ROOT completes the run — the root writes NO roll-up; finishing IS its completion" },
+        { node: null,   a: "IdleDone", aEdge: "rollup->idledone", caption: "Session idles for follow-up chat" }
+      ]
+    )
+  },
+  {
+    id: "root-single",
+    label: "Root confident single (collapse)",
+    steps: [
+      { node: null,   a: "Live",   caption: "Live session — new run" },
+      { node: "root", a: "Enter",  aEdge: "live->enter", caption: "Root enters the algorithm" },
+      { node: "root", a: "Recon",  caption: "Root recon" },
+      { node: "root", a: "Sizer",  caption: "Root sizer: confident this is ONE plan" },
+      { node: "n01",  a: "Enter",  aEdge: "sizer->enter", caption: "ROOT single is special: it collapses to ONE child 01 — the root itself does not become a leaf" },
+      { node: "n01",  a: "Recon",  caption: "01 recon — its own scoping turn" },
+      { node: "n01",  a: "PDraft", aEdge: "recon->pdraft", caption: "01 SKIPS its own sizer (the root already sized it) — straight to the plan draft" },
+      { node: "n01",  a: "PGate",  caption: "PLAN GATE — held for YOUR approval" },
+      { node: "n01",  a: "PGate",  tone: "green", caption: "You approve — write policy flips to acceptEdits" },
+      { node: "n01",  a: "Exec",   tone: "orange", caption: "01 executes" },
+      { node: "n01",  a: "LeafSum", mark: [["n01", "done"]], caption: "01 summary written (watchdogged turn)" },
+      { node: "root", a: "Recurse", aEdge: "leafsum->recurse", caption: "01 was the only child — no siblings, so the parent review is skipped" },
+      { node: "root", a: "Rollup",  tone: "green", mark: [["root", "done"]], caption: "Root completes the run — no roll-up summary is written at the root" },
+      { node: null,   a: "IdleDone", aEdge: "rollup->idledone", caption: "Session idles for follow-up chat" }
+    ]
+  },
+  {
+    id: "parent-review",
+    label: "Parent review (ADJUST note)",
+    steps: [
+      { node: "n01",  a: "LeafSum", aEdge: null, mark: [["n01", "done"]], caption: "01 has just summarized — and sibling 02 remains" },
+      { node: "root", a: "Recurse", aEdge: "leafsum->recurse", caption: "Ascend — because siblings remain, the parent does NOT descend immediately" },
+      { node: "root", a: "Review",  caption: "The root runs a NO-TOOLS review turn over 01's summary — watchdog-covered, like resuming + summary turns" },
+      { node: "root", a: "Review",  tone: "orange", caption: "Outcome: an ADJUST note (course-correct the next child) or NONE" },
+      { node: "n02",  a: "Enter",   aEdge: "review->enter", caption: "Descend into the next child 02 — the edge carries 'ADJUST note or NONE'" },
+      { node: "n02",  a: "Recon",   caption: "The note injects into 02's recon + plan prompts; NONE injects nothing" },
+      { node: "root", a: "Recurse", aEdge: null, caption: "After the LAST child the review is skipped — the parent goes straight to roll-up / complete" }
+    ]
+  },
+  {
+    id: "deny-nested",
+    label: "Deny a nested decomposition",
+    steps: [
+      { node: null,   a: "Live",   caption: "Live session — new run" },
+      { node: "root", a: "Enter",  aEdge: "live->enter", caption: "Root runs the algorithm…" },
+      { node: "root", a: "Recon",  caption: "…recon…" },
+      { node: "root", a: "Sizer",  caption: "…sizer: split" },
+      { node: "root", a: "DDraft", caption: "Root decomposition: 01 and 02" },
+      { node: "root", a: "DGate",  tone: "green", caption: "You approve the root decomposition — interrupt + deferred first-child recon" },
+      { node: "n01",  a: null,     mark: [["n01", "done"]], caption: "(fast-forward) 01 runs its full leaf cycle and summarizes" },
+      { node: "root", a: "Review", aEdge: null, caption: "Sibling 02 remains — root parent-review over 01's summary: ADJUST or NONE" },
+      { node: "n02",  a: "Enter",  aEdge: "review->enter", caption: "Descend into 02" },
+      { node: "n02",  a: "Recon",  caption: "02 recon (note injected if the root said ADJUST)" },
+      { node: "n02",  a: "Sizer",  caption: "02 sizer: split again" },
+      { node: "n02",  a: "DDraft", caption: "02's decomposition drafted" },
+      { node: "n02",  a: "DGate",  caption: "02's OWN decomposition gate — held for YOUR review" },
+      { node: "n02",  a: "DGate",  tone: "red", caption: "You DENY 02's decomposition with feedback — nested gates are real gates" },
+      { node: "n02",  a: "DDraft", tone: "red", caption: "Deny + feedback resumes the SAME turn — 02 redrafts; nothing restarts" },
+      { node: "n02",  a: "DGate",  caption: "The redrafted decomposition is held for YOUR review again" }
+    ]
+  },
+  {
+    id: "deny-leaf",
+    label: "Deny a leaf plan",
+    steps: [
+      { node: null,  a: "Live",   caption: "Live session — somewhere mid-walk" },
+      { node: "n01", a: "PDraft", aEdge: null, caption: "(fast-forward) leaf 01 has drafted its plan" },
+      { node: "n01", a: "PGate",  caption: "PLAN GATE — held for YOUR review" },
+      { node: "n01", a: "PGate",  tone: "red", caption: "You deny with feedback" },
+      { node: "n01", a: "PDraft", tone: "red", caption: "Same-turn redraft from your feedback — still in plan mode" },
+      { node: "n01", a: "PGate",  caption: "New draft held for YOUR review again" }
+    ]
+  },
+  {
+    id: "numbering",
+    label: "Deepest-first numbering",
+    steps: [
+      { node: "root",  a: null, caption: "The root is just the first node — its children get two-digit ids" },
+      { node: "n01",   a: null, caption: "01 — the root's first child" },
+      { node: "n02",   a: null, caption: "02 — the root's second child; it happens to split again" },
+      { node: "n0201", a: null, caption: "02.01 — a child id is its parent's id + '.' + two digits" },
+      { node: "n0202", a: null, caption: "02.02 — the dotted id encodes the full path; depth is unlimited (02.02.01, …)" },
+      { node: "root",  a: null, caption: "Walk order is depth-first — 01, 02, 02.01, 02.02 — with a parent review between each pair of siblings" }
+    ]
+  },
+  {
+    id: "stop-new",
+    label: "Stop, then New plan (fresh session)",
+    steps: [
+      { node: null,   a: "NoSession", caption: "No session yet — user clicks New plan" },
+      { node: null,   a: "Composer",  caption: "Pick directory + request, Start" },
+      { node: null,   a: "Live",      caption: "Fresh sidecar process spawns; session starts in plan mode" },
+      { node: "root", a: "Enter",     aEdge: "live->enter", caption: "Root enters the algorithm" },
+      { node: "root", a: "Recon",     caption: "Root recon" },
+      { node: "root", a: "Sizer",     caption: "Root sizer: split" },
+      { node: "root", a: "DDraft",    caption: "Root decomposition drafted" },
+      { node: "root", a: "DGate",     tone: "green", caption: "You approve — interrupt + deferred first-child recon" },
+      { node: "root", a: "Recurse",   caption: "Recurse — first child: 01" },
+      { node: "n01",  a: "Enter",     aEdge: "recurse->enter", caption: "Descend into 01" },
+      { node: "n01",  a: "PDraft",    aEdge: null, caption: "(fast-forward) 01 plan drafted" },
+      { node: "n01",  a: "PGate",     tone: "green", caption: "You approve 01's plan" },
+      { node: "n01",  a: "Exec",      tone: "orange", caption: "Implementation underway" },
+      { node: null,   a: "NoSession", tone: "red", aEdge: null, caption: "You click Stop — interrupt + end session + sidecar killed; nothing remains" },
+      { node: null,   a: "Composer",  caption: "New plan" },
+      { node: null,   a: "Live",      tone: "green", caption: "Brand-new sidecar + session id — ZERO context from the old run" },
+      { node: "root", a: "Enter",     aEdge: "live->enter", caption: "The walk starts again at a fresh root" }
+    ]
+  },
+  {
+    id: "watchdog-fatal",
+    label: "Watchdog FATAL",
+    steps: [
+      { node: null,   a: "NoSession", caption: "No session yet" },
+      { node: null,   a: "Composer",  caption: "New plan" },
+      { node: null,   a: "Live",      caption: "Start — fresh sidecar" },
+      { node: "root", a: "Enter",     aEdge: "live->enter", caption: "Root enters the algorithm" },
+      { node: "root", a: "Recon",     caption: "Root recon" },
+      { node: "root", a: "Sizer",     caption: "Root sizer: split" },
+      { node: "root", a: "DDraft",    caption: "Root decomposition drafted" },
+      { node: "root", a: "DGate",     tone: "green", caption: "You approve — interrupt + deferred first-child recon" },
+      { node: "n01",  a: null,        mark: [["n01", "done"]], caption: "(fast-forward) 01 completes its leaf cycle" },
+      { node: "root", a: "Review",    aEdge: null, caption: "Root parent-review turn starts — no tools; the SAME watchdog that covers resuming + summary turns covers it" },
+      { node: "root", a: "Review",    tone: "red", caption: "Watchdog fires — the review turn stalled; no result arrived" },
+      { node: null,   a: "NoSession", tone: "red", aEdge: null, caption: "FATAL surfaces loudly and ends the session — sidecar killed; the next New plan gets a fresh session" }
+    ]
+  }
+];
+
+/* =========================================================================
+   Step resolution + startup validation (pure; runnable under node).
+   ========================================================================= */
+function aEdgeKey(fromA, toA) {
+  return fromA.toLowerCase() + "->" + toA.toLowerCase();
+}
+
+// Resolves every step's Panel-A edge into step._aEdge (edge id or null) and
+// validates all references. Returns an array of error strings.
+function resolveFlows() {
+  const errors = [];
+  FLOWS.forEach(flow => {
+    flow.steps.forEach((step, i) => {
+      const at = "Flow " + flow.id + " step " + (i + 1);
+      if (step.node !== null && !TREE[step.node]) errors.push(at + ": unknown tree node " + step.node);
+      if (step.a !== null && step.a !== undefined && !A_STATES[step.a]) {
+        errors.push(at + ": unknown A-state " + step.a);
+        step._aEdge = null;
+        return;
+      }
+      if (step.mark) {
+        step.mark.forEach(m => {
+          if (!TREE[m[0]]) errors.push(at + ": mark references unknown tree node " + m[0]);
+        });
+      }
+      if (Object.prototype.hasOwnProperty.call(step, "aEdge")) {
+        if (step.aEdge !== null && !A_EDGES[step.aEdge]) {
+          errors.push(at + ": explicit aEdge \"" + step.aEdge + "\" not in A_EDGES table");
+          step._aEdge = null;
+        } else {
+          step._aEdge = step.aEdge;
+        }
+        return;
+      }
+      if (i === 0) { step._aEdge = null; return; }
+      const prev = flow.steps[i - 1];
+      if (!prev.a || !step.a || prev.node !== step.node || prev.a === step.a) {
+        step._aEdge = null;
+        return;
+      }
+      const key = aEdgeKey(prev.a, step.a);
+      if (A_EDGES[key]) {
+        step._aEdge = key;
+      } else {
+        errors.push(at + ": no edge \"" + key + "\" in A_EDGES table (add it or set an explicit aEdge/null override)");
+        step._aEdge = null;
+      }
+    });
+  });
+  return errors;
+}
+
+/* =========================================================================
+   Browser-only section: build SVGs, wire UI, player.
+   ========================================================================= */
+if (typeof document !== "undefined") {
+
+  const SVG_NS = "http://www.w3.org/2000/svg";
+  function svgEl(tag, attrs) {
+    const el = document.createElementNS(SVG_NS, tag);
+    for (const k in attrs) el.setAttribute(k, attrs[k]);
+    return el;
+  }
+
+  // ---------- Panel A: edges ----------
+  const aEdgesLayer = document.getElementById("a-edges");
+  const aEdgeEls = {};
+  Object.keys(A_EDGES).forEach(id => {
+    const e = A_EDGES[id];
+    const g = svgEl("g", { "class": "edge" + (e.descend ? " descend" : ""), "data-edge": id });
+    g.appendChild(svgEl("path", { "class": "line", d: e.d }));
+    if (e.label) {
+      const text = svgEl("text", { x: e.lx, y: e.ly, "text-anchor": e.anchor || "middle" });
+      const lines = Array.isArray(e.label) ? e.label : [e.label];
+      lines.forEach((ln, idx) => {
+        const tspan = svgEl("tspan", { x: e.lx, y: e.ly + idx * 11 });
+        tspan.textContent = ln;
+        text.appendChild(tspan);
+      });
+      g.appendChild(text);
+    }
+    aEdgesLayer.appendChild(g);
+    aEdgeEls[id] = g;
+  });
+
+  // ---------- Panel A: states ----------
+  const aStatesLayer = document.getElementById("a-states");
+  const aStateEls = {};
+  const BADGE = {
+    plan:   { text: "plan",        w: 40, cls: "" },
+    accept: { text: "acceptEdits", w: 78, cls: "accept" }
+  };
+  Object.keys(A_STATES).forEach(id => {
+    const s = A_STATES[id];
+    const g = svgEl("g", { "class": "state" + (s.cls ? " " + s.cls : ""), "data-state": id });
+    g.appendChild(svgEl("rect", { "class": "box", x: s.x, y: s.y, width: s.w, height: s.h, rx: 10 }));
+    const cx = s.x + s.w / 2;
+    const name = svgEl("text", {
+      "class": "name", x: cx,
+      y: (s.badge || s.sub) ? s.y + 21 : s.y + s.h / 2 + 5,
+      "text-anchor": "middle"
+    });
+    name.textContent = s.label;
+    g.appendChild(name);
+    if (s.sub) {
+      const sub = svgEl("text", { "class": "subcap", x: cx, y: s.y + 34, "text-anchor": "middle" });
+      sub.textContent = s.sub;
+      g.appendChild(sub);
+    }
+    if (s.badge) {
+      const b = BADGE[s.badge];
+      const by = s.sub ? s.y + 38 : s.y + 30;
+      g.appendChild(svgEl("rect", {
+        "class": "badge-pill " + b.cls,
+        x: cx - b.w / 2, y: by, width: b.w, height: 17, rx: 8.5
+      }));
+      const bt = svgEl("text", { "class": "badge-text " + b.cls, x: cx, y: by + 12, "text-anchor": "middle" });
+      bt.textContent = b.text;
+      g.appendChild(bt);
+    }
+    aStatesLayer.appendChild(g);
+    aStateEls[id] = g;
+  });
+
+  // ---------- Panel B: tree nodes (containers first so children overlay) ----------
+  const bLayer = document.getElementById("b-nodes");
+  const treeEls = {};
+  const TREE_ORDER = ["root", "n02", "n01", "n0201", "n0202"];
+  TREE_ORDER.forEach(id => {
+    const n = TREE[id];
+    const g = svgEl("g", { "class": "tnode" + (n.container ? " container" : ""), "data-node": id });
+    g.appendChild(svgEl("rect", { "class": "tbox", x: n.x, y: n.y, width: n.w, height: n.h, rx: 10 }));
+    const pillW = n.idLabel.length * 6.5 + 16;
+    g.appendChild(svgEl("rect", { "class": "id-pill", x: n.x + 12, y: n.y + 11, width: pillW, height: 18, rx: 9 }));
+    const idt = svgEl("text", { "class": "id-text", x: n.x + 12 + pillW / 2, y: n.y + 24, "text-anchor": "middle" });
+    idt.textContent = n.idLabel;
+    g.appendChild(idt);
+    const name = svgEl("text", { "class": "tname", x: n.x + 12 + pillW + 10, y: n.y + 25, "text-anchor": "start" });
+    name.textContent = n.label;
+    g.appendChild(name);
+    if (n.sub) {
+      const sub = svgEl("text", { "class": "tsub", x: n.x + 13, y: n.y + 47, "text-anchor": "start" });
+      sub.textContent = n.sub;
+      g.appendChild(sub);
+    }
+    bLayer.appendChild(g);
+    treeEls[id] = g;
+  });
+
+  // ---------- startup validation ----------
+  const validationErrors = resolveFlows();
+  if (validationErrors.length) {
+    validationErrors.forEach(msg => console.error(msg));
+    const banner = document.getElementById("error-banner");
+    banner.textContent = "Flow/edge/tree validation failed:\n" + validationErrors.join("\n");
+    banner.classList.add("show");
+  }
+
+  // ---------- DOM lookups ----------
+  const flowList  = document.getElementById("flow-list");
+  const captionEl = document.getElementById("caption");
+  const counterEl = document.getElementById("step-counter");
+  const btnReplay = document.getElementById("btn-replay");
+  const btnPrev   = document.getElementById("btn-prev");
+  const btnNext   = document.getElementById("btn-next");
+  const speedBtns = document.querySelectorAll("#speed-row .ctl-btn");
+
+  const TONES = ["tone-green", "tone-red", "tone-orange"];
+
+  // ---------- Player ----------
+  const player = {
+    flow: null,
+    index: -1,
+    timer: null,
+    interval: 1500,
+    playing: false,
+
+    select(flow) {
+      this.stop();
+      this.flow = flow;
+      this.index = -1;
+      document.querySelectorAll(".flow-btn").forEach(b =>
+        b.classList.toggle("active", b.dataset.flow === flow.id));
+      btnReplay.disabled = false;
+      btnPrev.disabled = false;
+      btnNext.disabled = false;
+      this.play();
+    },
+
+    play() {
+      if (!this.flow) return;
+      this.stop();
+      this.index = -1;
+      this.playing = true;
+      this.advance();
+      this.timer = setInterval(() => this.advance(), this.interval);
+    },
+
+    advance() {
+      if (!this.flow) return;
+      if (this.index >= this.flow.steps.length - 1) { this.stop(); return; }
+      this.index++;
+      this.render();
+    },
+
+    stop() {
+      if (this.timer) { clearInterval(this.timer); this.timer = null; }
+      this.playing = false;
+    },
+
+    step(delta) {
+      if (!this.flow) return;
+      this.stop();
+      const next = Math.min(Math.max(this.index + delta, 0), this.flow.steps.length - 1);
+      if (next === this.index) return;
+      this.index = next;
+      this.render();
+    },
+
+    setSpeed(ms) {
+      this.interval = ms;
+      if (this.playing) {
+        clearInterval(this.timer);
+        this.timer = setInterval(() => this.advance(), this.interval);
+        this.playing = true;
+      }
+    },
+
+    // Recomputes the whole display from steps[0..index] so prev/next stays correct.
+    render() {
+      const steps = this.flow.steps;
+      const i = this.index;
+
+      // reset everything
+      Object.values(aStateEls).forEach(el =>
+        el.classList.remove("current", "visited", ...TONES));
+      Object.values(aEdgeEls).forEach(el =>
+        el.classList.remove("current", "visited", ...TONES));
+      Object.values(treeEls).forEach(el =>
+        el.classList.remove("current", "visited", "done", ...TONES));
+
+      // replay: Panel-A "visited" trail resets each time the walk enters a
+      // different tree node (the algorithm restarts fresh at every node);
+      // tree marks + visited accumulate across the whole run.
+      const visitedA = new Set();
+      const visitedAEdges = new Set();
+      const marks = [];
+      let lastNode = null;
+      for (let k = 0; k <= i; k++) {
+        const st = steps[k];
+        if (st.node !== lastNode) {
+          visitedA.clear();
+          visitedAEdges.clear();
+          lastNode = st.node;
+        }
+        if (k < i) {
+          if (st.a) visitedA.add(st.a);
+          if (st._aEdge) visitedAEdges.add(st._aEdge);
+          if (st.node) treeEls[st.node].classList.add("visited");
+        }
+        if (st.mark) st.mark.forEach(m => marks.push(m));
+      }
+      visitedA.forEach(id => aStateEls[id].classList.add("visited"));
+      visitedAEdges.forEach(id => aEdgeEls[id].classList.add("visited"));
+      marks.forEach(m => treeEls[m[0]].classList.add(m[1]));
+
+      const step = steps[i];
+      const edgeId = step._aEdge;
+      // step tone wins; otherwise the traversed edge's intrinsic tone
+      const tone = step.tone || (edgeId && A_EDGES[edgeId].tone) || null;
+
+      // Panel A current state (re-trigger animation on revisits)
+      if (step.a) {
+        const el = aStateEls[step.a];
+        el.classList.remove("visited");
+        void el.getBoundingClientRect();
+        el.classList.add("current");
+        if (tone) el.classList.add("tone-" + tone);
+      }
+
+      // Panel A current edge
+      if (edgeId) {
+        const eg = aEdgeEls[edgeId];
+        eg.classList.remove("visited");
+        void eg.getBoundingClientRect();
+        eg.classList.add("current");
+        if (tone) eg.classList.add("tone-" + tone);
+      }
+
+      // Panel B current tree node (session-only steps highlight nothing)
+      if (step.node) {
+        const tn = treeEls[step.node];
+        tn.classList.remove("visited");
+        void tn.getBoundingClientRect();
+        tn.classList.add("current");
+        if (tone) tn.classList.add("tone-" + tone);
+      }
+
+      // caption + counter
+      counterEl.textContent = (i + 1) + "/" + steps.length;
+      captionEl.textContent = step.caption;
+      captionEl.classList.remove("placeholder", ...TONES);
+      if (step.tone) captionEl.classList.add("tone-" + step.tone);
+    }
+  };
+
+  // ---------- Wire up UI ----------
+  FLOWS.forEach(flow => {
+    const btn = document.createElement("button");
+    btn.className = "flow-btn";
+    btn.textContent = flow.label;
+    btn.dataset.flow = flow.id;
+    btn.addEventListener("click", () => player.select(flow));
+    flowList.appendChild(btn);
+  });
+
+  btnReplay.addEventListener("click", () => player.play());
+  btnPrev.addEventListener("click", () => player.step(-1));
+  btnNext.addEventListener("click", () => player.step(1));
+
+  speedBtns.forEach(btn => {
+    btn.addEventListener("click", () => {
+      speedBtns.forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      player.setSpeed(Number(btn.dataset.speed));
+    });
+  });
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "ArrowRight") player.step(1);
+    else if (e.key === "ArrowLeft") player.step(-1);
+  });
+
+} else {
+  // node harness: run the same startup validation headlessly
+  const errs = resolveFlows();
+  if (errs.length) {
+    errs.forEach(m => console.error(m));
+    process.exitCode = 1;
+  } else {
+    let nSteps = 0;
+    FLOWS.forEach(f => { nSteps += f.steps.length; });
+    console.log("flow-visualizer validation OK: " + FLOWS.length + " flows, " + nSteps + " steps, "
+      + Object.keys(A_EDGES).length + " edges, " + Object.keys(A_STATES).length + " A-states, "
+      + Object.keys(TREE).length + " tree nodes");
+  }
+}
+</script>
+</body>
+</html>
